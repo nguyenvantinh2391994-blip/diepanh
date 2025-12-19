@@ -1,12 +1,21 @@
 """
 Mimi Robot - Backend Server
 Main entry point for the AI dialogue server
+
+Chạy ẩn (daemon mode):
+    python main.py          # Tự động tắt instance cũ và chạy mới
+    python main.py --stop   # Dừng server đang chạy
+    python main.py --status # Kiểm tra trạng thái
 """
 
 import asyncio
 import json
 import logging
 import base64
+import os
+import sys
+import signal
+import atexit
 from pathlib import Path
 
 import uvicorn
@@ -21,11 +30,152 @@ from memory_manager import MemoryManager
 from connection_manager import ConnectionManager
 from sheets_manager import SheetsManager
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# PID file để quản lý process
+PID_FILE = Path(__file__).parent.parent / "data" / "mimi.pid"
+LOG_FILE = Path(__file__).parent.parent / "data" / "mimi.log"
+
+
+def setup_logging(daemon_mode: bool = False):
+    """Setup logging - console hoặc file tùy chế độ"""
+    # Đảm bảo thư mục data tồn tại
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    handlers = []
+
+    if daemon_mode:
+        # Daemon mode: log ra file
+        file_handler = logging.FileHandler(LOG_FILE, encoding='utf-8')
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        handlers.append(file_handler)
+    else:
+        # Interactive mode: log ra console
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        handlers.append(console_handler)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=handlers
+    )
+
+
+def get_running_pid() -> int | None:
+    """Lấy PID của process đang chạy"""
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            # Kiểm tra process còn sống không
+            os.kill(pid, 0)
+            return pid
+        except (ValueError, ProcessLookupError, PermissionError):
+            # Process không còn tồn tại
+            PID_FILE.unlink(missing_ok=True)
+    return None
+
+
+def write_pid():
+    """Ghi PID hiện tại vào file"""
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PID_FILE.write_text(str(os.getpid()))
+
+
+def remove_pid():
+    """Xóa PID file khi thoát"""
+    PID_FILE.unlink(missing_ok=True)
+
+
+def stop_existing_instance() -> bool:
+    """Dừng instance đang chạy (nếu có)"""
+    pid = get_running_pid()
+    if pid:
+        print(f"🛑 Đang dừng Mimi server cũ (PID: {pid})...")
+        try:
+            os.kill(pid, signal.SIGTERM)
+            # Đợi process tắt
+            import time
+            for _ in range(10):  # Đợi tối đa 5 giây
+                time.sleep(0.5)
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    print("✅ Đã dừng server cũ")
+                    PID_FILE.unlink(missing_ok=True)
+                    return True
+            # Nếu vẫn chưa tắt, kill mạnh
+            os.kill(pid, signal.SIGKILL)
+            PID_FILE.unlink(missing_ok=True)
+            print("✅ Đã buộc dừng server cũ")
+            return True
+        except ProcessLookupError:
+            PID_FILE.unlink(missing_ok=True)
+            return True
+        except PermissionError:
+            print(f"❌ Không có quyền dừng process {pid}")
+            return False
+    return True
+
+
+def daemonize():
+    """Chuyển process thành daemon (chạy ẩn)"""
+    # Fork lần 1
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # Parent process thoát
+            sys.exit(0)
+    except OSError as e:
+        print(f"Fork #1 failed: {e}")
+        sys.exit(1)
+
+    # Tách khỏi terminal
+    os.setsid()
+    os.umask(0)
+
+    # Fork lần 2
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError as e:
+        print(f"Fork #2 failed: {e}")
+        sys.exit(1)
+
+    # Redirect stdin/stdout/stderr
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    with open('/dev/null', 'r') as devnull:
+        os.dup2(devnull.fileno(), sys.stdin.fileno())
+
+    # stdout và stderr ghi vào log file
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    log_fd = os.open(str(LOG_FILE), os.O_WRONLY | os.O_CREAT | os.O_APPEND)
+    os.dup2(log_fd, sys.stdout.fileno())
+    os.dup2(log_fd, sys.stderr.fileno())
+
+
+def show_status():
+    """Hiển thị trạng thái server"""
+    pid = get_running_pid()
+    if pid:
+        print(f"✅ Mimi server đang chạy (PID: {pid})")
+        print(f"📝 Log file: {LOG_FILE}")
+        if LOG_FILE.exists():
+            # Hiển thị 10 dòng log cuối
+            lines = LOG_FILE.read_text().splitlines()[-10:]
+            if lines:
+                print("\n--- Log gần đây ---")
+                for line in lines:
+                    print(line)
+    else:
+        print("❌ Mimi server không chạy")
+
+
+# Setup logging mặc định (sẽ được cập nhật trong main)
 logger = logging.getLogger("mimi-server")
 
 # Initialize FastAPI app
@@ -481,10 +631,61 @@ async def process_text_input(websocket: WebSocket, device_id: str, text: str):
         })
 
 
-if __name__ == "__main__":
+def run_server(daemon_mode: bool = True):
+    """Chạy server"""
+    # Dừng instance cũ nếu có
+    if not stop_existing_instance():
+        sys.exit(1)
+
+    if daemon_mode:
+        print("🚀 Khởi động Mimi server (chế độ ẩn)...")
+        daemonize()
+        setup_logging(daemon_mode=True)
+    else:
+        setup_logging(daemon_mode=False)
+        print("🚀 Khởi động Mimi server (chế độ interactive)...")
+
+    # Ghi PID và đăng ký cleanup
+    write_pid()
+    atexit.register(remove_pid)
+
+    # Xử lý signal để cleanup khi bị kill
+    def signal_handler(signum, frame):
+        logger.info("Received shutdown signal")
+        remove_pid()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    logger.info(f"Mimi server started (PID: {os.getpid()})")
+
+    # Chạy uvicorn
     uvicorn.run(
         "main:app",
         host=config.get("server.host", "0.0.0.0"),
         port=config.get("server.port", 8080),
-        reload=config.get("server.debug", True)
+        reload=False,  # Không reload trong daemon mode
+        log_level="info"
     )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Mimi Robot Backend Server")
+    parser.add_argument("--stop", action="store_true", help="Dừng server đang chạy")
+    parser.add_argument("--status", action="store_true", help="Kiểm tra trạng thái server")
+    parser.add_argument("--foreground", "-f", action="store_true", help="Chạy ở chế độ foreground (hiển thị log)")
+    args = parser.parse_args()
+
+    if args.status:
+        show_status()
+    elif args.stop:
+        if stop_existing_instance():
+            print("✅ Đã dừng Mimi server")
+        else:
+            print("❌ Không thể dừng server")
+    else:
+        # Chạy server (mặc định là daemon mode)
+        run_server(daemon_mode=not args.foreground)
