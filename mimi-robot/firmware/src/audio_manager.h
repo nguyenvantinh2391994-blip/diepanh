@@ -91,6 +91,9 @@ public:
         }
 
         // Allocate buffers - use smaller sizes if no PSRAM
+        Serial.printf("[AUDIO] PSRAM detected: %s\n", psramFound() ? "YES" : "NO");
+        Serial.printf("[AUDIO] Free heap before alloc: %d bytes\n", ESP.getFreeHeap());
+
         if (psramFound()) {
             maxRecordingSize = 32000 * 5;   // 5 seconds with PSRAM
             maxPlaybackSize = 32000 * 10;   // 10 seconds with PSRAM
@@ -106,6 +109,8 @@ public:
             recordingBuffer = (uint8_t*)malloc(maxRecordingSize);
             Serial.printf("[AUDIO] Using RAM: rec=%d, play=%d bytes\n", maxRecordingSize, maxPlaybackSize);
         }
+        Serial.printf("[AUDIO] Buffer alloc results: audio=%p, playback=%p, recording=%p\n",
+                      audioBuffer, playbackBuffer, recordingBuffer);
 
         if (!audioBuffer || !playbackBuffer || !recordingBuffer) {
             Serial.println("[AUDIO] Buffer allocation failed!");
@@ -251,8 +256,16 @@ public:
     }
 
     void playRawAudio(const uint8_t* data, size_t length) {
-        if (!playbackBuffer || length > maxPlaybackSize) {
-            Serial.printf("[AUDIO] Playback data too large! (%d > %d)\n", length, maxPlaybackSize);
+        Serial.printf("[AUDIO] playRawAudio called with %d bytes\n", length);
+        Serial.printf("[AUDIO] playbackBuffer=%p, maxPlaybackSize=%d\n", playbackBuffer, maxPlaybackSize);
+
+        if (!playbackBuffer) {
+            Serial.println("[AUDIO] ERROR: playbackBuffer is NULL!");
+            return;
+        }
+
+        if (length > maxPlaybackSize) {
+            Serial.printf("[AUDIO] ERROR: data too large! (%d > %d)\n", length, maxPlaybackSize);
             return;
         }
 
@@ -260,7 +273,7 @@ public:
         playbackSize = length;
         playbackPos = 0;
         playing = true;
-        Serial.printf("[AUDIO] Playing %d bytes of raw audio\n", length);
+        Serial.printf("[AUDIO] Playing %d bytes of raw audio, playing=%d\n", length, playing);
     }
 
     bool isPlaying() const { return playing; }
@@ -283,11 +296,25 @@ public:
         size_t chunkSize = min((size_t)AUDIO_BUFFER_SIZE, playbackSize - playbackPos);
         size_t bytesWritten = 0;
 
+        // Debug: log first few writes
+        static int writeCount = 0;
+        if (playbackPos == 0) {
+            writeCount = 0;
+            Serial.printf("[AUDIO] Starting playback: size=%d, chunk=%d\n", playbackSize, chunkSize);
+        }
+
         esp_err_t err = i2s_write(I2S_NUM_1, playbackBuffer + playbackPos, chunkSize,
                                    &bytesWritten, pdMS_TO_TICKS(100));
 
         if (err == ESP_OK) {
             playbackPos += bytesWritten;
+            writeCount++;
+            if (writeCount <= 3 || writeCount % 50 == 0) {
+                Serial.printf("[AUDIO] I2S write #%d: pos=%d/%d, written=%d\n",
+                              writeCount, playbackPos, playbackSize, bytesWritten);
+            }
+        } else {
+            Serial.printf("[AUDIO] I2S write ERROR: %d\n", err);
         }
     }
 

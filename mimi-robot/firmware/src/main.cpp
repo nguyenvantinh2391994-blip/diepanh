@@ -451,6 +451,7 @@ void testSpeakerWithHTTP() {
     char testUrl[128];
     snprintf(testUrl, sizeof(testUrl), "http://%s:%d/api/test-speak", SERVER_HOST, SERVER_PORT);
 
+    Serial.println("========================================");
     Serial.printf("[TEST] Fetching test audio from %s\n", testUrl);
     Serial.printf("[TEST] PSRAM: %s, Free heap: %d\n",
                   psramFound() ? "YES" : "NO", ESP.getFreeHeap());
@@ -459,50 +460,75 @@ void testSpeakerWithHTTP() {
     http.begin(testUrl);
     http.setTimeout(30000);
 
+    Serial.println("[TEST] Sending HTTP GET request...");
     int httpCode = http.GET();
+    Serial.printf("[TEST] HTTP response code: %d\n", httpCode);
 
     if (httpCode == HTTP_CODE_OK) {
         int len = http.getSize();
-        Serial.printf("[TEST] Received %d bytes of test audio\n", len);
+        Serial.printf("[TEST] Content-Length: %d bytes\n", len);
 
         if (len > 0) {
             WiFiClient* stream = http.getStreamPtr();
+            Serial.printf("[TEST] Stream available: %d bytes\n", stream->available());
 
             // Try PSRAM first, then regular RAM
             uint8_t* audioData = nullptr;
+            size_t allocSize = len;
+
             if (psramFound()) {
                 audioData = (uint8_t*)ps_malloc(len);
-                Serial.println("[TEST] Using PSRAM for audio");
+                if (audioData) {
+                    Serial.printf("[TEST] Allocated %d bytes in PSRAM\n", len);
+                }
             }
+
             if (!audioData) {
                 // Fallback to regular RAM, but limit size
-                size_t allocSize = min(len, 32000);
+                allocSize = min(len, 32000);
                 audioData = (uint8_t*)malloc(allocSize);
                 if (audioData) {
-                    Serial.printf("[TEST] Using RAM, limited to %d bytes\n", allocSize);
+                    Serial.printf("[TEST] Allocated %d bytes in RAM (limited from %d)\n", allocSize, len);
                     len = allocSize;  // Only read what we can fit
                 }
             }
 
             if (audioData) {
+                Serial.printf("[TEST] Reading %d bytes from stream...\n", len);
                 int bytesRead = stream->readBytes(audioData, len);
-                Serial.printf("[TEST] Read %d bytes from stream\n", bytesRead);
+                Serial.printf("[TEST] Actually read %d bytes\n", bytesRead);
 
+                // Print first few bytes for debugging
                 if (bytesRead > 0) {
+                    Serial.printf("[TEST] First 16 bytes: ");
+                    for (int i = 0; i < min(16, bytesRead); i++) {
+                        Serial.printf("%02X ", audioData[i]);
+                    }
+                    Serial.println();
+
+                    Serial.println("[TEST] Calling audioManager.playRawAudio...");
                     audioManager.playRawAudio(audioData, bytesRead);
+                    Serial.println("[TEST] Setting state to SPEAKING");
                     mimiState.setState(MimiState::SPEAKING);
                     displayManager.showFace(DisplayManager::TALKING);
+                    Serial.printf("[TEST] isPlaying: %d\n", audioManager.isPlaying());
                 }
                 free(audioData);
             } else {
-                Serial.println("[TEST] Failed to allocate memory for audio!");
+                Serial.println("[TEST] ERROR: Failed to allocate memory!");
+                Serial.printf("[TEST] Free heap: %d\n", ESP.getFreeHeap());
             }
+        } else if (len == -1) {
+            Serial.println("[TEST] Chunked transfer - reading until done...");
+            // Handle chunked transfer
         }
     } else {
-        Serial.printf("[TEST] Error: %s\n", http.errorToString(httpCode).c_str());
+        Serial.printf("[TEST] HTTP Error: %s\n", http.errorToString(httpCode).c_str());
     }
 
     http.end();
+    Serial.println("[TEST] Test complete");
+    Serial.println("========================================");
 }
 
 // Play startup melody
