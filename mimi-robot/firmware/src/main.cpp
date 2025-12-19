@@ -1,205 +1,358 @@
 /**
- * OLED + Speaker Test for XH-S3E-AI Board
- * Tests both display and audio
+ * Mimi Robot - AI Voice Assistant for Kids
+ * A cute AI companion that lives in a stuffed bear
+ *
+ * Hardware: XH-S3E-AI Board (ESP32-S3-N16R8)
  */
 
 #include <Arduino.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <driver/i2s.h>
-#include <math.h>
+#include <WiFi.h>
+#include <ArduinoJson.h>
 
-// OLED Display pins (I2C) - XH-S3E-AI board (from Keyestudio docs)
-#define OLED_SDA    41  // GPIO 41 = SDA
-#define OLED_SCL    42  // GPIO 42 = SCL
-#define OLED_ADDR   0x3C
-#define OLED_WIDTH  128
-#define OLED_HEIGHT 64
+#include "config.h"
+#include "mimi_state.h"
+#include "display_manager.h"
+#include "audio_manager.h"
+#include "wifi_manager.h"
+#include "websocket_client.h"
 
-// I2S pins for NS4168 amplifier
-#define I2S_BCLK    15
-#define I2S_LRCLK   16
-#define I2S_DOUT    7
+// Global objects
+MimiState mimiState;
+DisplayManager displayManager;
+AudioManager audioManager;
+MimiWiFiManager wifiManager;
+WebSocketClient wsClient;
 
-#define SAMPLE_RATE 16000
-#define BUFFER_SIZE 1024
+// Button handling
+volatile bool buttonPressed = false;
+unsigned long buttonPressTime = 0;
+const unsigned long LONG_PRESS_MS = 3000;
 
-Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
-int16_t audioBuffer[BUFFER_SIZE];
-bool oledOK = false;
+// Task handles
+TaskHandle_t audioTaskHandle = NULL;
+TaskHandle_t displayTaskHandle = NULL;
 
-void scanI2C() {
-    Serial.println("\nScanning I2C bus...");
-    int found = 0;
-    for (uint8_t addr = 1; addr < 127; addr++) {
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
-            Serial.printf("  Found device at 0x%02X\n", addr);
-            found++;
-        }
-    }
-    if (found == 0) {
-        Serial.println("  No I2C devices found!");
-    } else {
-        Serial.printf("  Total: %d device(s)\n", found);
-    }
-}
-
-bool setupOLED() {
-    Serial.println("\n[OLED] Initializing...");
-    Serial.printf("  SDA: GPIO %d\n", OLED_SDA);
-    Serial.printf("  SCL: GPIO %d\n", OLED_SCL);
-
-    Wire.begin(OLED_SDA, OLED_SCL);
-    delay(100);
-
-    scanI2C();
-
-    Serial.println("\n[OLED] Starting SSD1306...");
-
-    for (int attempt = 0; attempt < 3; attempt++) {
-        if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-            Serial.println("[OLED] SUCCESS!");
-            display.clearDisplay();
-            display.setTextSize(2);
-            display.setTextColor(SSD1306_WHITE);
-            display.setCursor(10, 10);
-            display.println("MIMI");
-            display.setTextSize(1);
-            display.setCursor(10, 40);
-            display.println("Hello World!");
-            display.display();
-            return true;
-        }
-        Serial.printf("[OLED] Attempt %d failed\n", attempt + 1);
-        delay(100);
-    }
-
-    Serial.println("[OLED] FAILED after 3 attempts");
-    return false;
-}
-
-void setupI2S() {
-    i2s_config_t i2s_config = {
-        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
-        .sample_rate = SAMPLE_RATE,
-        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-        .communication_format = I2S_COMM_FORMAT_STAND_I2S,
-        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 4,
-        .dma_buf_len = BUFFER_SIZE,
-        .use_apll = false,
-        .tx_desc_auto_clear = true,
-        .fixed_mclk = 0
-    };
-
-    i2s_pin_config_t pin_config = {
-        .bck_io_num = I2S_BCLK,
-        .ws_io_num = I2S_LRCLK,
-        .data_out_num = I2S_DOUT,
-        .data_in_num = I2S_PIN_NO_CHANGE
-    };
-
-    esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-    if (err != ESP_OK) {
-        Serial.printf("[I2S] Driver install failed: %d\n", err);
-        return;
-    }
-
-    err = i2s_set_pin(I2S_NUM_0, &pin_config);
-    if (err != ESP_OK) {
-        Serial.printf("[I2S] Pin config failed: %d\n", err);
-        return;
-    }
-
-    Serial.println("[I2S] Initialized OK");
-}
-
-void playTone(int frequency, int durationMs) {
-    int samples = (SAMPLE_RATE * durationMs) / 1000;
-    float amplitude = 30000;
-
-    int pos = 0;
-    while (pos < samples) {
-        int toWrite = min(BUFFER_SIZE, samples - pos);
-
-        for (int i = 0; i < toWrite; i++) {
-            float t = (float)(pos + i) / SAMPLE_RATE;
-            audioBuffer[i] = (int16_t)(amplitude * sin(2.0 * M_PI * frequency * t));
-        }
-
-        size_t bytesWritten;
-        i2s_write(I2S_NUM_0, audioBuffer, toWrite * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
-        pos += toWrite;
-    }
-
-    memset(audioBuffer, 0, sizeof(audioBuffer));
-    size_t bytesWritten;
-    i2s_write(I2S_NUM_0, audioBuffer, BUFFER_SIZE * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
-}
+// Function declarations
+void onWebSocketMessage(const String& message);
+void onVoiceData(const uint8_t* data, size_t length);
+void audioTask(void* parameter);
+void displayTask(void* parameter);
+void IRAM_ATTR buttonISR();
+void playStartupSound();
 
 void setup() {
+    // Disable brownout detector
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
     Serial.begin(115200);
-    delay(3000);
+    delay(2000);
 
     Serial.println();
     Serial.println("==========================================");
-    Serial.println("  OLED + SPEAKER TEST - XH-S3E-AI Board");
+    Serial.println("  MIMI ROBOT - AI Voice Assistant");
+    Serial.println("  Version: 0.1.0");
     Serial.println("==========================================");
+    Serial.println();
 
-    // Test OLED
-    oledOK = setupOLED();
+    // Initialize display first (for visual feedback)
+    Serial.println("[INIT] Starting display...");
+    if (!displayManager.begin()) {
+        Serial.println("[INIT] Display init failed!");
+    } else {
+        displayManager.showBootScreen();
+    }
 
-    // Test Speaker
-    setupI2S();
-    Serial.println("\nPlaying startup sound...");
-    playTone(523, 200);
-    delay(50);
-    playTone(784, 200);
-    delay(50);
-    playTone(1047, 300);
+    // Show loading status
+    displayManager.showStatus("Khoi dong...");
 
-    Serial.println("\n==========================================");
-    Serial.printf("  OLED:    %s\n", oledOK ? "OK" : "FAILED");
-    Serial.println("  Speaker: OK (you heard sound)");
+    // Initialize audio
+    Serial.println("[INIT] Starting audio...");
+    if (!audioManager.begin()) {
+        Serial.println("[INIT] Audio init failed!");
+        displayManager.showStatus("Loi audio!");
+        mimiState.setState(MimiState::ERROR);
+    } else {
+        audioManager.setVoiceCallback(onVoiceData);
+        playStartupSound();
+    }
+
+    // Initialize button
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+
+    // Connect to WiFi
+    displayManager.showStatus("Ket noi WiFi...");
+    Serial.println("[INIT] Connecting to WiFi...");
+
+    if (!wifiManager.begin()) {
+        Serial.println("[INIT] Starting WiFi config portal...");
+        displayManager.showStatus("Cau hinh WiFi");
+        displayManager.showMessage("Ket noi WiFi:\nMimi-Setup");
+        wifiManager.startConfigPortal("Mimi-Setup");
+    }
+
+    if (wifiManager.isConnected()) {
+        Serial.printf("[INIT] WiFi connected: %s\n", wifiManager.getIP().c_str());
+        displayManager.showStatus("Da ket noi WiFi");
+
+        // Connect to WebSocket server
+        displayManager.showStatus("Ket noi server...");
+        Serial.println("[INIT] Connecting to server...");
+
+        if (wsClient.begin(SERVER_HOST, SERVER_PORT, SERVER_PATH)) {
+            Serial.println("[INIT] Server connected!");
+            displayManager.showStatus("San sang!");
+            wsClient.setMessageCallback(onWebSocketMessage);
+        } else {
+            Serial.println("[INIT] Server connection failed");
+            displayManager.showStatus("Loi server!");
+        }
+    } else {
+        Serial.println("[INIT] WiFi not connected");
+        displayManager.showStatus("Khong co WiFi");
+    }
+
+    // Create tasks on different cores
+    xTaskCreatePinnedToCore(
+        audioTask,
+        "AudioTask",
+        8192,
+        NULL,
+        2,
+        &audioTaskHandle,
+        0  // Core 0
+    );
+
+    xTaskCreatePinnedToCore(
+        displayTask,
+        "DisplayTask",
+        4096,
+        NULL,
+        1,
+        &displayTaskHandle,
+        1  // Core 1
+    );
+
+    // Ready!
+    mimiState.setState(MimiState::IDLE);
+    displayManager.showFace(DisplayManager::HAPPY);
+
+    Serial.println();
     Serial.println("==========================================");
+    Serial.println("  MIMI san sang! Noi 'Mimi oi' de bat dau");
+    Serial.println("==========================================");
+    Serial.println();
+}
 
-    if (oledOK) {
-        display.clearDisplay();
-        display.setTextSize(1);
-        display.setCursor(0, 0);
-        display.println("Hardware Test");
-        display.println();
-        display.println("OLED:    OK");
-        display.println("Speaker: OK");
-        display.println();
-        display.println("All systems ready!");
-        display.display();
+void loop() {
+    // Handle WebSocket
+    wsClient.loop();
+
+    // Check WiFi connection
+    static unsigned long lastWifiCheck = 0;
+    if (millis() - lastWifiCheck > 30000) {
+        wifiManager.checkConnection();
+        lastWifiCheck = millis();
+    }
+
+    // Handle button press
+    if (buttonPressed) {
+        buttonPressed = false;
+        unsigned long pressDuration = millis() - buttonPressTime;
+
+        if (pressDuration > LONG_PRESS_MS) {
+            // Long press: reset WiFi
+            Serial.println("[BUTTON] Long press - resetting WiFi");
+            displayManager.showStatus("Reset WiFi...");
+            wifiManager.resetCredentials();
+            ESP.restart();
+        } else {
+            // Short press: activate listening
+            Serial.println("[BUTTON] Short press - activating");
+            if (mimiState.isState(MimiState::IDLE)) {
+                mimiState.setState(MimiState::LISTENING);
+                displayManager.showFace(DisplayManager::LISTENING);
+                wsClient.sendAudioStart();
+            }
+        }
+    }
+
+    // State machine
+    switch (mimiState.getState()) {
+        case MimiState::IDLE:
+            // Check for voice activity (wake word detection could go here)
+            if (audioManager.isVoiceDetected()) {
+                mimiState.setState(MimiState::LISTENING);
+                displayManager.showFace(DisplayManager::LISTENING);
+                wsClient.sendAudioStart();
+            }
+            break;
+
+        case MimiState::LISTENING:
+            // Listening animation handled by display task
+            if (!audioManager.isCurrentlyRecording() &&
+                mimiState.getStateTime() > 500) {
+                // Recording stopped
+                mimiState.setState(MimiState::THINKING);
+                displayManager.showFace(DisplayManager::THINKING);
+                wsClient.sendAudioEnd();
+            }
+            break;
+
+        case MimiState::THINKING:
+            // Waiting for server response
+            // Timeout after 30 seconds
+            if (mimiState.getStateTime() > 30000) {
+                Serial.println("[STATE] Thinking timeout");
+                mimiState.setState(MimiState::IDLE);
+                displayManager.showFace(DisplayManager::SAD);
+                delay(2000);
+                displayManager.showFace(DisplayManager::HAPPY);
+            }
+            break;
+
+        case MimiState::SPEAKING:
+            // Check if playback finished
+            if (!audioManager.isPlaying()) {
+                mimiState.setState(MimiState::IDLE);
+                displayManager.showFace(DisplayManager::HAPPY);
+            }
+            break;
+
+        case MimiState::ERROR:
+            // Show error for a while then recover
+            if (mimiState.getStateTime() > 5000) {
+                mimiState.setState(MimiState::IDLE);
+                displayManager.showFace(DisplayManager::HAPPY);
+            }
+            break;
+    }
+
+    delay(10);
+}
+
+// Audio task - handles recording and playback
+void audioTask(void* parameter) {
+    while (true) {
+        if (mimiState.isState(MimiState::LISTENING)) {
+            audioManager.update();
+        }
+
+        if (mimiState.isState(MimiState::SPEAKING)) {
+            audioManager.playbackUpdate();
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-int count = 0;
+// Display task - handles animations
+void displayTask(void* parameter) {
+    while (true) {
+        displayManager.updateAnimation();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
 
-void loop() {
-    delay(3000);
-    count++;
+// Button interrupt
+void IRAM_ATTR buttonISR() {
+    buttonPressTime = millis();
+    buttonPressed = true;
+}
 
-    if (oledOK) {
-        display.clearDisplay();
-        display.setTextSize(2);
-        display.setCursor(20, 10);
-        display.printf("Count: %d", count);
-        display.setTextSize(1);
-        display.setCursor(0, 50);
-        display.println("Press RESET to restart");
-        display.display();
+// WebSocket message handler
+void onWebSocketMessage(const String& message) {
+    StaticJsonDocument<1024> doc;
+    DeserializationError error = deserializeJson(doc, message);
+
+    if (error) {
+        Serial.printf("[WS] JSON parse error: %s\n", error.c_str());
+        return;
     }
 
-    Serial.printf("Loop #%d\n", count);
+    const char* type = doc["type"];
+
+    if (strcmp(type, "response") == 0) {
+        // Text response from AI
+        const char* text = doc["text"];
+        if (text) {
+            Serial.printf("[AI] Response: %s\n", text);
+            displayManager.showMessage(text);
+        }
+    }
+    else if (strcmp(type, "audio") == 0) {
+        // Audio response (base64 encoded)
+        const char* audioData = doc["data"];
+        if (audioData) {
+            mimiState.setState(MimiState::SPEAKING);
+            displayManager.showFace(DisplayManager::SPEAKING);
+            audioManager.playBase64Audio(audioData);
+        }
+    }
+    else if (strcmp(type, "emotion") == 0) {
+        // Change face expression
+        const char* emotion = doc["emotion"];
+        if (emotion) {
+            if (strcmp(emotion, "happy") == 0) {
+                displayManager.showFace(DisplayManager::HAPPY);
+            } else if (strcmp(emotion, "sad") == 0) {
+                displayManager.showFace(DisplayManager::SAD);
+            } else if (strcmp(emotion, "surprised") == 0) {
+                displayManager.showFace(DisplayManager::SURPRISED);
+            } else if (strcmp(emotion, "love") == 0) {
+                displayManager.showFace(DisplayManager::LOVE);
+            }
+        }
+    }
+    else if (strcmp(type, "command") == 0) {
+        // System commands
+        const char* cmd = doc["command"];
+        if (cmd) {
+            if (strcmp(cmd, "restart") == 0) {
+                ESP.restart();
+            } else if (strcmp(cmd, "reset_wifi") == 0) {
+                wifiManager.resetCredentials();
+                ESP.restart();
+            }
+        }
+    }
+}
+
+// Voice data callback - sends audio to server
+void onVoiceData(const uint8_t* data, size_t length) {
+    if (wsClient.isConnected()) {
+        wsClient.sendBinary(data, length);
+    }
+}
+
+// Play startup melody
+void playStartupSound() {
+    // Simple startup sound using I2S
+    const int melody[] = {523, 659, 784, 1047};
+    const int durations[] = {150, 150, 150, 300};
+
+    int16_t buffer[256];
+
+    for (int note = 0; note < 4; note++) {
+        int samples = (AUDIO_SAMPLE_RATE * durations[note]) / 1000;
+        int pos = 0;
+
+        while (pos < samples) {
+            int toWrite = min(256, samples - pos);
+
+            for (int i = 0; i < toWrite; i++) {
+                float t = (float)(pos + i) / AUDIO_SAMPLE_RATE;
+                buffer[i] = (int16_t)(20000 * sin(2.0 * M_PI * melody[note] * t));
+            }
+
+            size_t bytesWritten;
+            i2s_write(I2S_NUM_1, buffer, toWrite * sizeof(int16_t),
+                      &bytesWritten, portMAX_DELAY);
+            pos += toWrite;
+        }
+
+        delay(30);
+    }
 }
