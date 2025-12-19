@@ -52,13 +52,23 @@ class WhisperSTT(STTProvider):
 
         import tempfile
         import numpy as np
-        from scipy.io import wavfile
+        import wave
+        import struct
 
         try:
-            # Save audio to temp file
+            # Create proper WAV file from raw PCM data
+            # Audio format: 16-bit mono, 16000 Hz
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                f.write(audio_data)
                 temp_path = f.name
+
+            # Write WAV file with proper headers
+            with wave.open(temp_path, 'wb') as wav_file:
+                wav_file.setnchannels(1)  # Mono
+                wav_file.setsampwidth(2)  # 16-bit = 2 bytes
+                wav_file.setframerate(16000)  # 16000 Hz
+                wav_file.writeframes(audio_data)
+
+            logger.info(f"Saved WAV file: {len(audio_data)} bytes of audio")
 
             # Transcribe
             result = self.model.transcribe(
