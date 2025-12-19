@@ -1,96 +1,111 @@
 /**
- * OLED Test for XH-S3E-AI Board
- * Using GPIO 41 (SCL) and GPIO 42 (SDA)
+ * I2C Pin Scanner for XH-S3E-AI Board
+ * Scans all possible GPIO combinations to find OLED
  */
 
 #include <Arduino.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
-// OLED pins for XH-S3E-AI board
-#define OLED_SDA  42
-#define OLED_SCL  41
-#define OLED_ADDR 0x3C
+// Common I2C pin combinations to try
+int pinPairs[][2] = {
+    {42, 41},  // IO42/SDA, IO41/SCL (from board silkscreen)
+    {41, 42},  // Swapped
+    {8, 9},    // Default ESP32-S3
+    {9, 8},    // Swapped
+    {21, 22},  // Common ESP32
+    {22, 21},  // Swapped
+    {1, 2},    // Some boards
+    {2, 1},    // Swapped
+    {4, 5},    // Check audio pins
+    {5, 4},    // Swapped
+    {6, 7},    // Check audio pins
+    {7, 6},    // Swapped
+    {17, 18},  // Alternative
+    {18, 17},  // Swapped
+    {47, 48},  // High pins
+    {48, 47},  // Swapped
+    {38, 39},  // Check
+    {39, 38},  // Swapped
+    {33, 34},  // Check
+    {35, 36},  // Check
+    {43, 44},  // Near USB
+    {44, 43},  // Swapped
+    {45, 46},  // Check
+    {46, 45},  // Swapped
+};
 
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
-bool oledOK = false;
+int numPairs = sizeof(pinPairs) / sizeof(pinPairs[0]);
 
 void setup() {
-    // Disable brownout detector
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
     Serial.begin(115200);
     delay(3000);
 
     Serial.println();
-    Serial.println("================================");
-    Serial.println("  OLED TEST - XH-S3E-AI Board");
-    Serial.println("================================");
-    Serial.printf("SDA: GPIO %d\n", OLED_SDA);
-    Serial.printf("SCL: GPIO %d\n", OLED_SCL);
+    Serial.println("==========================================");
+    Serial.println("  I2C PIN SCANNER - XH-S3E-AI Board");
+    Serial.println("==========================================");
+    Serial.println("Looking for OLED at address 0x3C...\n");
 
-    // Initialize I2C
-    Serial.println("\nInitializing I2C...");
-    Wire.begin(OLED_SDA, OLED_SCL);
-    delay(100);
+    bool found = false;
 
-    // Scan I2C bus
-    Serial.println("Scanning I2C bus...");
-    int found = 0;
-    for (uint8_t addr = 1; addr < 127; addr++) {
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
-            Serial.printf("  Found device at 0x%02X\n", addr);
-            found++;
+    for (int p = 0; p < numPairs && !found; p++) {
+        int sda = pinPairs[p][0];
+        int scl = pinPairs[p][1];
+
+        Serial.printf("Testing SDA=%d, SCL=%d ... ", sda, scl);
+
+        // Initialize I2C with these pins
+        Wire.end();
+        delay(10);
+        Wire.begin(sda, scl);
+        delay(50);
+
+        // Scan for device at 0x3C
+        Wire.beginTransmission(0x3C);
+        int error = Wire.endTransmission();
+
+        if (error == 0) {
+            Serial.println("FOUND OLED!");
+            Serial.println();
+            Serial.println("==========================================");
+            Serial.printf("  SUCCESS! OLED found at:\n");
+            Serial.printf("  SDA = GPIO %d\n", sda);
+            Serial.printf("  SCL = GPIO %d\n", scl);
+            Serial.println("==========================================");
+            found = true;
+
+            // Also scan for other devices
+            Serial.println("\nScanning for all I2C devices on these pins:");
+            for (uint8_t addr = 1; addr < 127; addr++) {
+                Wire.beginTransmission(addr);
+                if (Wire.endTransmission() == 0) {
+                    Serial.printf("  Device at 0x%02X\n", addr);
+                }
+            }
+        } else {
+            Serial.println("not found");
         }
     }
-    if (found == 0) {
-        Serial.println("  No I2C devices found!");
+
+    if (!found) {
+        Serial.println();
+        Serial.println("==========================================");
+        Serial.println("  OLED NOT FOUND on any pin combination!");
+        Serial.println("  Check:");
+        Serial.println("  1. Is OLED connected to the board?");
+        Serial.println("  2. Is OLED cable properly seated?");
+        Serial.println("  3. Is OLED working (not damaged)?");
+        Serial.println("==========================================");
     }
 
-    // Initialize OLED
-    Serial.println("\nInitializing OLED...");
-    if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-        Serial.println("OLED OK!");
-        oledOK = true;
-
-        display.clearDisplay();
-        display.setTextSize(2);
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(20, 10);
-        display.println("MIMI");
-        display.setTextSize(1);
-        display.setCursor(5, 40);
-        display.println("Hello Diep Anh!");
-        display.display();
-    } else {
-        Serial.println("OLED FAILED!");
-    }
-
-    Serial.println("================================");
+    Serial.println("\nScan complete.");
 }
 
-int count = 0;
-
 void loop() {
-    Serial.printf("Count: %d\n", count);
-
-    if (oledOK && count % 2 == 0) {
-        display.clearDisplay();
-        display.setTextSize(2);
-        display.setCursor(20, 5);
-        display.println("MIMI");
-        display.setTextSize(1);
-        display.setCursor(5, 30);
-        display.printf("Count: %d", count);
-        display.setCursor(5, 45);
-        display.println("XH-S3E-AI OK!");
-        display.display();
-    }
-
-    count++;
-    delay(1000);
+    delay(10000);
+    Serial.println("Waiting... (scan done)");
 }
