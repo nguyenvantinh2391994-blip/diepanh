@@ -107,8 +107,12 @@ class OllamaProvider(AIProvider):
                     models = [m["name"] for m in data.get("models", [])]
                     logger.info(f"Ollama connected. Available models: {models}")
 
-                    if self.model not in [m.split(":")[0] for m in models]:
+                    # Kiểm tra model có sẵn (so khớp đầy đủ hoặc phần tên)
+                    model_names = [m.split(":")[0] for m in models]
+                    if self.model not in models and self.model.split(":")[0] not in model_names:
                         logger.warning(f"Model {self.model} not found. Run: ollama pull {self.model}")
+                    else:
+                        logger.info(f"Model {self.model} is available!")
                 else:
                     logger.error("Ollama not responding")
         except Exception as e:
