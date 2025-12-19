@@ -298,12 +298,13 @@ async def voice_endpoint(request: Request):
 
         logger.info(f"[HTTP] Recognized: {recognized_text}")
 
+        # TẠM THỜI: Bỏ qua wake word để test
         # Check for wake word
-        if not contains_wake_word(recognized_text):
-            logger.info("[HTTP] No wake word detected, ignoring")
-            return Response(content=b"", status_code=204)
+        # if not contains_wake_word(recognized_text):
+        #     logger.info("[HTTP] No wake word detected, ignoring")
+        #     return Response(content=b"", status_code=204)
 
-        logger.info("[HTTP] Wake word detected! Processing...")
+        logger.info("[HTTP] Processing audio (wake word disabled for testing)...")
 
         command_text = remove_wake_word(recognized_text)
         logger.info(f"[HTTP] Command: {command_text}")
