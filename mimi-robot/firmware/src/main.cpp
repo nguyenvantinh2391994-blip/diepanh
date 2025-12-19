@@ -452,6 +452,8 @@ void testSpeakerWithHTTP() {
     snprintf(testUrl, sizeof(testUrl), "http://%s:%d/api/test-speak", SERVER_HOST, SERVER_PORT);
 
     Serial.printf("[TEST] Fetching test audio from %s\n", testUrl);
+    Serial.printf("[TEST] PSRAM: %s, Free heap: %d\n",
+                  psramFound() ? "YES" : "NO", ESP.getFreeHeap());
 
     HTTPClient http;
     http.begin(testUrl);
@@ -465,14 +467,35 @@ void testSpeakerWithHTTP() {
 
         if (len > 0) {
             WiFiClient* stream = http.getStreamPtr();
-            uint8_t* audioData = (uint8_t*)ps_malloc(len);
+
+            // Try PSRAM first, then regular RAM
+            uint8_t* audioData = nullptr;
+            if (psramFound()) {
+                audioData = (uint8_t*)ps_malloc(len);
+                Serial.println("[TEST] Using PSRAM for audio");
+            }
+            if (!audioData) {
+                // Fallback to regular RAM, but limit size
+                size_t allocSize = min(len, 32000);
+                audioData = (uint8_t*)malloc(allocSize);
+                if (audioData) {
+                    Serial.printf("[TEST] Using RAM, limited to %d bytes\n", allocSize);
+                    len = allocSize;  // Only read what we can fit
+                }
+            }
 
             if (audioData) {
-                stream->readBytes(audioData, len);
-                audioManager.playRawAudio(audioData, len);
-                mimiState.setState(MimiState::SPEAKING);
-                displayManager.showFace(DisplayManager::TALKING);
+                int bytesRead = stream->readBytes(audioData, len);
+                Serial.printf("[TEST] Read %d bytes from stream\n", bytesRead);
+
+                if (bytesRead > 0) {
+                    audioManager.playRawAudio(audioData, bytesRead);
+                    mimiState.setState(MimiState::SPEAKING);
+                    displayManager.showFace(DisplayManager::TALKING);
+                }
                 free(audioData);
+            } else {
+                Serial.println("[TEST] Failed to allocate memory for audio!");
             }
         }
     } else {
