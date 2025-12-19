@@ -177,6 +177,30 @@ async def process_voice_input(websocket: WebSocket, device_id: str, audio_data: 
         # Notify robot that we're processing
         await websocket.send_json({"type": "thinking"})
 
+        # DEBUG MODE: Always respond with test message to verify speaker works
+        logger.info(f"Received {len(audio_data)} bytes of audio - sending test response")
+
+        test_text = "Xin chào! Mimi nghe thấy bạn rồi!"
+        await websocket.send_json({
+            "type": "text",
+            "text": test_text
+        })
+
+        # Generate and send TTS audio
+        tts_audio = await speech_processor.text_to_speech(test_text)
+        if tts_audio:
+            import base64
+            audio_base64 = base64.b64encode(tts_audio).decode('utf-8')
+            logger.info(f"Sending TTS audio: {len(tts_audio)} bytes")
+            await websocket.send_json({
+                "type": "audio",
+                "data": audio_base64
+            })
+        else:
+            logger.error("TTS failed to generate audio")
+        return
+
+        # Original code below (disabled for testing)
         # Speech-to-Text
         logger.info("Converting speech to text...")
         text = await speech_processor.speech_to_text(audio_data)
