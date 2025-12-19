@@ -420,7 +420,7 @@ void sendVoiceViaHTTP() {
     Serial.printf("[HTTP] Response code: %d\n", httpCode);
 
     if (httpCode == HTTP_CODE_OK) {
-        // Get response audio
+        // Got response with audio - wake word was detected
         int len = http.getSize();
         Serial.printf("[HTTP] Received %d bytes of audio response\n", len);
 
@@ -444,6 +444,11 @@ void sendVoiceViaHTTP() {
                 Serial.println("[HTTP] Failed to allocate response buffer");
             }
         }
+    } else if (httpCode == 204) {
+        // 204 No Content = No wake word detected, ignore silently
+        Serial.println("[HTTP] No wake word detected, returning to IDLE");
+        mimiState.setState(MimiState::IDLE);
+        displayManager.showFace(DisplayManager::HAPPY);
     } else {
         Serial.printf("[HTTP] Error: %s\n", http.errorToString(httpCode).c_str());
         mimiState.setState(MimiState::IDLE);

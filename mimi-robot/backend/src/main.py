@@ -93,11 +93,40 @@ async def health():
     }
 
 
+# Wake words to detect
+WAKE_WORDS = ["mimi", "mi mi", "mí mi", "mi-mi", "mimi ơi", "mimi oi", "ê mimi", "hey mimi"]
+
+
+def contains_wake_word(text: str) -> bool:
+    """Check if text contains a wake word"""
+    text_lower = text.lower().strip()
+    for wake_word in WAKE_WORDS:
+        if wake_word in text_lower:
+            return True
+    return False
+
+
+def remove_wake_word(text: str) -> str:
+    """Remove wake word from text to get the actual command"""
+    text_lower = text.lower().strip()
+    for wake_word in WAKE_WORDS:
+        if wake_word in text_lower:
+            # Remove wake word and clean up
+            result = text_lower.replace(wake_word, "").strip()
+            # Remove common filler words after wake word
+            for filler in ["ơi", "oi", "à", "a", "này", "nay"]:
+                if result.startswith(filler):
+                    result = result[len(filler):].strip()
+            return result if result else text
+    return text
+
+
 @app.post("/api/voice")
 async def voice_endpoint(request: Request):
     """
     HTTP endpoint for voice processing.
     Receives raw PCM audio, returns PCM audio response.
+    Only responds if wake word "Mimi" is detected.
     """
     try:
         # Receive raw audio data
@@ -105,27 +134,43 @@ async def voice_endpoint(request: Request):
         logger.info(f"[HTTP] Received {len(audio_data)} bytes of audio")
 
         if len(audio_data) < 1000:
-            logger.warning("[HTTP] Audio too short")
-            response_text = "Mimi không nghe rõ, bạn nói lại nhé!"
+            logger.warning("[HTTP] Audio too short, ignoring")
+            # Return empty response - don't speak
+            return Response(content=b"", status_code=204)
+
+        # Speech-to-Text
+        logger.info("[HTTP] Converting speech to text...")
+        recognized_text = await speech_processor.speech_to_text(audio_data)
+
+        if not recognized_text or recognized_text.strip() == "":
+            logger.info("[HTTP] No speech detected, ignoring")
+            return Response(content=b"", status_code=204)
+
+        logger.info(f"[HTTP] Recognized: {recognized_text}")
+
+        # Check for wake word
+        if not contains_wake_word(recognized_text):
+            logger.info("[HTTP] No wake word detected, ignoring")
+            return Response(content=b"", status_code=204)
+
+        logger.info("[HTTP] Wake word detected! Processing...")
+
+        # Remove wake word to get actual command
+        command_text = remove_wake_word(recognized_text)
+        logger.info(f"[HTTP] Command after removing wake word: {command_text}")
+
+        # If only wake word was said (no command), respond with greeting
+        if not command_text or len(command_text) < 2:
+            response_text = "Dạ, Mimi đang nghe đây! Bạn cần gì nào?"
         else:
-            # Speech-to-Text
-            logger.info("[HTTP] Converting speech to text...")
-            recognized_text = await speech_processor.speech_to_text(audio_data)
-
-            if not recognized_text or recognized_text.strip() == "":
-                logger.info("[HTTP] No speech detected")
-                response_text = "Mimi không nghe rõ, bạn nói lại được không?"
-            else:
-                logger.info(f"[HTTP] Recognized: {recognized_text}")
-
-                # Get AI response
-                logger.info("[HTTP] Generating AI response...")
-                response_text = await ai_engine.generate_response(
-                    user_input=recognized_text,
-                    context={},
-                    history=[]
-                )
-                logger.info(f"[HTTP] AI Response: {response_text}")
+            # Get AI response
+            logger.info("[HTTP] Generating AI response...")
+            response_text = await ai_engine.generate_response(
+                user_input=command_text,
+                context={},
+                history=[]
+            )
+            logger.info(f"[HTTP] AI Response: {response_text}")
 
         # Generate TTS audio
         logger.info(f"[HTTP] Generating TTS for: {response_text}")
