@@ -29,11 +29,31 @@ public:
     DisplayManager() : display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1) {}
 
     bool begin() {
+        Serial.println("[DISPLAY] Initializing I2C...");
         Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
 
-        if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-            Serial.println("[DISPLAY] SSD1306 init failed!");
-            return false;
+        // CRITICAL: Wait for I2C bus and OLED power to stabilize after power cycle
+        delay(150);
+
+        // Try to recover I2C bus if stuck from previous session
+        Wire.beginTransmission(OLED_ADDR);
+        Wire.endTransmission();
+        delay(10);
+
+        Serial.println("[DISPLAY] Initializing SSD1306...");
+
+        // Try multiple times in case of power instability
+        for (int attempt = 0; attempt < 3; attempt++) {
+            if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+                Serial.println("[DISPLAY] SSD1306 initialized successfully!");
+                break;
+            }
+            Serial.printf("[DISPLAY] Attempt %d failed, retrying...\n", attempt + 1);
+            delay(100);
+            if (attempt == 2) {
+                Serial.println("[DISPLAY] SSD1306 init failed after 3 attempts!");
+                return false;
+            }
         }
 
         display.clearDisplay();
