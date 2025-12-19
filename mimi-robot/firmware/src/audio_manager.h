@@ -120,6 +120,13 @@ public:
         esp_err_t err = i2s_read(I2S_NUM_0, audioBuffer, AUDIO_BUFFER_SIZE * sizeof(int16_t),
                                   &bytesRead, pdMS_TO_TICKS(10));
 
+        // Debug output every second
+        static unsigned long lastDebugTime = 0;
+        if (millis() - lastDebugTime > 1000) {
+            Serial.printf("[MIC DEBUG] i2s_read: err=%d, bytesRead=%d\n", err, bytesRead);
+            lastDebugTime = millis();
+        }
+
         if (err != ESP_OK || bytesRead == 0) {
             return;
         }
@@ -128,10 +135,21 @@ public:
 
         // Voice Activity Detection
         int32_t sum = 0;
+        int16_t minVal = 32767, maxVal = -32768;
         for (size_t i = 0; i < samplesRead; i++) {
             sum += abs(audioBuffer[i]);
+            if (audioBuffer[i] < minVal) minVal = audioBuffer[i];
+            if (audioBuffer[i] > maxVal) maxVal = audioBuffer[i];
         }
         int32_t average = sum / samplesRead;
+
+        // Debug audio levels every second
+        static unsigned long lastLevelDebug = 0;
+        if (millis() - lastLevelDebug > 1000) {
+            Serial.printf("[MIC LEVEL] avg=%d, min=%d, max=%d, threshold=%d\n",
+                          average, minVal, maxVal, VAD_THRESHOLD);
+            lastLevelDebug = millis();
+        }
 
         bool wasVoiceDetected = voiceDetected;
         voiceDetected = average > VAD_THRESHOLD;
