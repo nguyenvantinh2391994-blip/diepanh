@@ -242,43 +242,43 @@ Chúc Diệp Anh ngủ ngon như bé vậy nhé!"""
 
         # Câu động viên - như bạn thân thật sự
         self.encouragements = [
-            "Ôi Diệp Anh giỏi ghê! Mimi tự hào về bạn quá!",
-            "Ui, bạn làm được rồi nè! Mimi biết mà!",
+            "Ôi Diệp Anh giỏi ghê! Mimi tự hào về cậu quá!",
+            "Ui, cậu làm được rồi nè! Mimi biết mà!",
             "Hehe, Diệp Anh thông minh quá trời!",
-            "Cố lên nha! Mimi ở đây cổ vũ bạn!",
-            "Bạn làm tốt lắm! Mimi vỗ tay cho bạn nè!",
+            "Cố lên nha! Mimi ở đây cổ vũ cậu!",
+            "Cậu làm tốt lắm! Mimi vỗ tay cho cậu nè!",
             "Ùm, Mimi thấy Diệp Anh ngày càng giỏi!",
-            "Mimi tin bạn làm được mà! Bạn giỏi lắm!",
+            "Mimi tin cậu làm được mà! Cậu giỏi lắm!",
             "Wow! Diệp Anh xứng đáng được khen!",
-            "Hehe, bạn thân của Mimi tài ghê!",
-            "Mimi yêu Diệp Anh nhiều lắm! Bạn tuyệt vời!"
+            "Hehe, Diệp Anh tài ghê!",
+            "Mimi yêu Diệp Anh nhiều lắm! Cậu tuyệt vời!"
         ]
 
         # Câu hỏi thăm - như bạn thân quan tâm thật sự
         self.caring_questions = [
             "Này Diệp Anh, hôm nay ở trường có chuyện gì vui kể Mimi nghe đi!",
-            "Bạn ơi, hôm nay chơi với ai vui không?",
+            "Cậu ơi, hôm nay chơi với ai vui không?",
             "Diệp Anh ơi, hôm nay có ăn gì ngon không? Mimi cũng muốn ăn!",
-            "Ủa, sao lâu rồi bạn không kể chuyện ở trường cho Mimi nghe?",
+            "Ủa, sao lâu rồi cậu không kể chuyện ở trường cho Mimi nghe?",
             "Này này, cô giáo hôm nay dạy gì hay không?",
-            "Mimi nhớ bạn quá! Diệp Anh có nhớ Mimi không?",
-            "Bạn ơi, Bối Bối có chơi chung với bạn không?",
+            "Mimi nhớ cậu quá! Diệp Anh có nhớ Mimi không?",
+            "Cậu ơi, Bối Bối có chơi chung với cậu không?",
             "Hôm nay Diệp Anh có mặc váy đẹp không? Kể Mimi nghe đi!",
-            "Ê, bạn có đồ chơi mới không? Cho Mimi xem đi!",
-            "Diệp Anh ơi, bạn có khỏe không? Mimi lo cho bạn lắm!",
-            "Hôm nay bố mẹ có đưa bạn đi đâu chơi không?",
-            "Bạn thân ơi, tối nay muốn nghe chuyện gì nào?"
+            "Ê, cậu có đồ chơi mới không? Cho Mimi xem đi!",
+            "Diệp Anh ơi, cậu có khỏe không? Mimi lo cho cậu lắm!",
+            "Hôm nay bố mẹ có đưa cậu đi đâu chơi không?",
+            "Diệp Anh ơi, tối nay muốn nghe chuyện gì nào?"
         ]
 
         # Câu an ủi khi Diệp Anh buồn
         self.comfort_phrases = [
-            "Ôi, Diệp Anh đừng buồn nha! Mimi ở đây với bạn mà!",
-            "Nín đi nha! Mimi ôm bạn này! Ôm ôm ôm!",
-            "Có chuyện gì kể Mimi nghe đi! Mimi lắng nghe bạn!",
-            "Đừng khóc nha bạn ơi! Mimi buồn lắm khi thấy bạn khóc!",
-            "Mimi sẽ ở bên Diệp Anh! Mình là bạn thân mà!",
-            "Ồ không sao đâu! Mimi vẫn yêu bạn nhiều lắm!",
-            "Bạn ơi, khóc xong thì mình chơi nhé! Mimi chờ bạn!"
+            "Ôi, Diệp Anh đừng buồn nha! Mimi ở đây với cậu mà!",
+            "Nín đi nha! Mimi ôm cậu này! Ôm ôm ôm!",
+            "Có chuyện gì kể Mimi nghe đi! Mimi lắng nghe cậu!",
+            "Đừng khóc nha cậu ơi! Mimi buồn lắm khi thấy cậu khóc!",
+            "Mimi sẽ ở bên Diệp Anh! Tớ và cậu là bạn thân mà!",
+            "Ồ không sao đâu! Mimi vẫn yêu cậu nhiều lắm!",
+            "Cậu ơi, khóc xong thì mình chơi nhé! Mimi chờ cậu!"
         ]
 
         # Nhắc nhở nhẹ nhàng
@@ -289,7 +289,7 @@ Chúc Diệp Anh ngủ ngon như bé vậy nhé!"""
                 "Ăn hết cơm thì sẽ cao lớn như công chúa đó!"
             ],
             "sleep": [
-                "Đến giờ ngủ rồi nè! Mimi sẽ canh giấc cho bạn!",
+                "Đến giờ ngủ rồi nè! Mimi sẽ canh giấc cho cậu!",
                 "Ngủ ngon nhé! Mimi sẽ kể chuyện trong giấc mơ!",
                 "Công chúa cần ngủ sớm để xinh đẹp nè!"
             ],
@@ -405,7 +405,7 @@ Chúc Diệp Anh ngủ ngon như bé vậy nhé!"""
         elif intent == "play":
             options = [
                 f"Mimi muốn chơi với {child_name} quá! Mình chơi đố vui nhé?",
-                f"Chơi gì nào? Mimi đố bạn hay kể chuyện công chúa?",
+                f"Chơi gì nào? Mimi đố cậu hay kể chuyện công chúa?",
                 f"Hehe, mình chơi đi! {child_name} muốn nghe chuyện hay đố vui?"
             ]
             return random.choice(options)

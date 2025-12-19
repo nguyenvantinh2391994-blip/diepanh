@@ -315,9 +315,9 @@ async def voice_endpoint(request: Request):
 
         if not command_text or len(command_text) < 2:
             if context.get("child_name"):
-                response_text = f"Dạ, {context['child_name']}! Mimi đang nghe đây! Bạn cần gì nào?"
+                response_text = f"Dạ, Mimi đây! Sao đó {context['child_name']}?"
             else:
-                response_text = "Dạ, Mimi đang nghe đây! Bạn cần gì nào?"
+                response_text = "Dạ, Mimi đây! Gì đó cậu?"
         else:
             logger.info("[HTTP] Generating AI response...")
             response_text = await ai_engine.generate_response(
@@ -461,7 +461,7 @@ async def process_voice_input(websocket: WebSocket, device_id: str, audio_data: 
 
         if not text or text.strip() == "":
             logger.info("No speech detected")
-            fallback_text = "Mimi không nghe rõ, bạn nói lại được không?"
+            fallback_text = "Mimi không nghe rõ, cậu nói lại được không?"
             await websocket.send_json({"type": "text", "text": fallback_text})
             audio = await speech_processor.text_to_speech(fallback_text)
             if audio:

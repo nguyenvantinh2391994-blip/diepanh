@@ -140,7 +140,8 @@ class OllamaProvider(AIProvider):
             "messages": full_messages,
             "stream": False,
             "options": {
-                "temperature": self.temperature
+                "temperature": self.temperature,
+                "num_predict": 100  # Giới hạn ~100 tokens để response ngắn và nhanh
             }
         }
 
@@ -250,7 +251,7 @@ class AIEngine:
 
         except Exception as e:
             logger.error(f"AI generation error: {e}")
-            return "Mimi đang nghĩ không ra, bạn hỏi lại được không?"
+            return "Mimi đang nghĩ không ra, cậu hỏi lại được không?"
 
     def _build_system_prompt(self, context: Optional[Dict]) -> str:
         """Build system prompt with user context - Mimi's living memory"""
@@ -373,6 +374,20 @@ class AIEngine:
 
         if not safety_config.get("enabled", True):
             return response
+
+        # Remove Chinese characters (Unicode range)
+        # Chinese: \u4e00-\u9fff, Japanese Hiragana/Katakana: \u3040-\u30ff
+        import re
+        original_len = len(response)
+        response = re.sub(r'[\u4e00-\u9fff\u3040-\u30ff]+', '', response)
+
+        # Clean up extra whitespace/newlines from removed text
+        response = re.sub(r'\n\s*\n', '\n', response)
+        response = re.sub(r'  +', ' ', response)
+        response = response.strip()
+
+        if len(response) < original_len:
+            logger.warning(f"Removed non-Vietnamese characters: {original_len} -> {len(response)} chars")
 
         # Check max length
         max_length = safety_config.get("max_response_length", 150)
