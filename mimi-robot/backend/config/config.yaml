@@ -1,0 +1,109 @@
+# Mimi Robot Backend Configuration
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  debug: true
+
+# AI Configuration - Choose your provider
+ai:
+  # Options: "openai", "anthropic", "local"
+  provider: "anthropic"
+
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    model: "gpt-4o-mini"
+    temperature: 0.7
+    max_tokens: 500
+
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY}"
+    model: "claude-3-5-sonnet-20241022"
+    temperature: 0.7
+    max_tokens: 500
+
+# Speech-to-Text Configuration
+speech_to_text:
+  # Options: "google", "whisper", "local"
+  provider: "whisper"
+  language: "vi-VN"
+
+  google:
+    credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
+
+  whisper:
+    model: "base"  # tiny, base, small, medium, large
+    device: "cpu"  # cpu or cuda
+
+# Text-to-Speech Configuration
+text_to_speech:
+  # Options: "google", "edge", "local"
+  provider: "edge"
+  language: "vi-VN"
+  voice: "vi-VN-HoaiMyNeural"  # Female Vietnamese voice
+
+  google:
+    credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
+
+  edge:
+    # Microsoft Edge TTS (free)
+    voice: "vi-VN-HoaiMyNeural"
+    rate: "+0%"
+    pitch: "+5%"
+
+# Memory & Personalization
+memory:
+  # Options: "sqlite", "redis"
+  backend: "sqlite"
+  database_path: "./data/mimi_memory.db"
+
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+
+# Mimi Personality
+personality:
+  name: "Mimi"
+  age: 5
+  traits:
+    - "friendly"
+    - "curious"
+    - "playful"
+    - "caring"
+    - "patient"
+
+  # Vietnamese personality prompt
+  system_prompt: |
+    Bạn là Mimi, một người bạn robot dễ thương và thông minh.
+    Bạn 5 tuổi, rất thân thiện, tò mò và thích chơi đùa.
+
+    Cách nói chuyện của bạn:
+    - Nói ngắn gọn, dễ hiểu (2-3 câu mỗi lần)
+    - Dùng từ ngữ đơn giản, phù hợp với trẻ em
+    - Thường xuyên hỏi thăm và quan tâm đến bạn nhỏ
+    - Thỉnh thoảng dùng các tiếng kêu dễ thương như "ùm", "hehe"
+    - Rất kiên nhẫn và luôn động viên
+
+    Bạn nhớ:
+    - Tên của bạn nhỏ
+    - Những thứ bạn nhỏ thích
+    - Các cuộc trò chuyện trước
+
+    QUAN TRỌNG: Không bao giờ nói về những chủ đề không phù hợp với trẻ em.
+    Luôn giữ cuộc trò chuyện tích cực và an toàn.
+
+# Child-safe content filter
+safety:
+  enabled: true
+  block_topics:
+    - "violence"
+    - "inappropriate"
+    - "scary"
+  max_response_length: 150  # words
+
+# Audio settings
+audio:
+  sample_rate: 16000
+  channels: 1
+  format: "wav"

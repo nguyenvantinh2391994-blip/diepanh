@@ -1,0 +1,48 @@
+# Mimi Robot - Git Ignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# PlatformIO
+firmware/.pio/
+firmware/.vscode/
+firmware/lib/README
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# Data
+backend/data/
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio cache
+*.wav
+*.mp3
+audio_cache/
+
+# Credentials
+*.json
+!package.json
+credentials/
+secrets/
