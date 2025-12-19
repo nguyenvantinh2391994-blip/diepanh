@@ -233,8 +233,18 @@ async def health():
     }
 
 
-# Wake words to detect
-WAKE_WORDS = ["mimi", "mi mi", "mí mi", "mi-mi", "mimi ơi", "mimi oi", "ê mimi", "hey mimi"]
+# Wake words to detect - nhiều variations vì Whisper tiny không chính xác
+WAKE_WORDS = [
+    # Chuẩn
+    "mimi", "mi mi", "mí mi", "mi-mi", "mimi ơi", "mimi oi",
+    # Variations Whisper có thể nghe thành
+    "mì mì", "mi mì", "mì mi", "mỳ mỳ", "mỉ mỉ",
+    "mê mê", "me me", "mề mề",
+    "hiểu", "hiu", "iu",  # Whisper đôi khi nghe "mimi ơi" thành "hiểu"
+    "mimi oi", "mimi ơi", "mì mì ơi",
+    "ê mimi", "hey mimi", "hê mimi",
+    "alo", "a lô",  # Thêm wake word phụ dễ nhận hơn
+]
 
 
 def contains_wake_word(text: str) -> bool:
