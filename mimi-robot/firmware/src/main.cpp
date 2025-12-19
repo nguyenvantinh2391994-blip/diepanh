@@ -41,8 +41,12 @@ TaskHandle_t displayTaskHandle = NULL;
 // Audio buffer for HTTP mode
 uint8_t* httpAudioBuffer = nullptr;
 size_t httpAudioSize = 0;
-const size_t HTTP_AUDIO_BUFFER_SIZE = 32000 * 5;  // 5 seconds
+size_t httpAudioBufferSize = 0;  // Actual allocated size
 bool httpAudioReady = false;
+
+// Buffer sizes
+const size_t PSRAM_BUFFER_SIZE = 32000 * 5;   // 5 seconds with PSRAM
+const size_t RAM_BUFFER_SIZE = 16000;         // ~0.5 seconds without PSRAM
 
 // Function declarations
 void onWebSocketMessage(const String& message);
@@ -72,17 +76,26 @@ void setup() {
     snprintf(httpVoiceUrl, sizeof(httpVoiceUrl), "http://%s:%d/api/voice", SERVER_HOST, SERVER_PORT);
     Serial.printf("[INIT] HTTP Voice URL: %s\n", httpVoiceUrl);
 
-    // Allocate HTTP audio buffer in PSRAM
+    // Allocate HTTP audio buffer - prefer PSRAM, fallback to smaller RAM buffer
     if (psramFound()) {
-        httpAudioBuffer = (uint8_t*)ps_malloc(HTTP_AUDIO_BUFFER_SIZE);
-        Serial.println("[INIT] Using PSRAM for HTTP audio buffer");
+        httpAudioBufferSize = PSRAM_BUFFER_SIZE;
+        httpAudioBuffer = (uint8_t*)ps_malloc(httpAudioBufferSize);
+        Serial.printf("[INIT] Using PSRAM for HTTP audio buffer (%d bytes)\n", httpAudioBufferSize);
     } else {
-        httpAudioBuffer = (uint8_t*)malloc(HTTP_AUDIO_BUFFER_SIZE);
-        Serial.println("[INIT] Using RAM for HTTP audio buffer");
+        httpAudioBufferSize = RAM_BUFFER_SIZE;
+        httpAudioBuffer = (uint8_t*)malloc(httpAudioBufferSize);
+        Serial.printf("[INIT] Using RAM for HTTP audio buffer (%d bytes)\n", httpAudioBufferSize);
     }
 
     if (!httpAudioBuffer) {
-        Serial.println("[INIT] HTTP audio buffer allocation failed!");
+        // Try even smaller buffer as last resort
+        httpAudioBufferSize = 8000;  // 0.25 seconds
+        httpAudioBuffer = (uint8_t*)malloc(httpAudioBufferSize);
+        if (httpAudioBuffer) {
+            Serial.printf("[INIT] Using minimal buffer (%d bytes)\n", httpAudioBufferSize);
+        } else {
+            Serial.println("[INIT] HTTP audio buffer allocation failed!");
+        }
     }
 
     // Initialize display first (for visual feedback)
@@ -371,7 +384,7 @@ void onVoiceData(const uint8_t* data, size_t length) {
     }
 
     // Accumulate audio data
-    if (httpAudioBuffer && httpAudioSize + length < HTTP_AUDIO_BUFFER_SIZE) {
+    if (httpAudioBuffer && httpAudioSize + length < httpAudioBufferSize) {
         memcpy(httpAudioBuffer + httpAudioSize, data, length);
         httpAudioSize += length;
     }

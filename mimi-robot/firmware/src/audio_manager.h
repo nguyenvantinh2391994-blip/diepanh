@@ -90,20 +90,42 @@ public:
             return false;
         }
 
-        // Allocate buffers in PSRAM if available
+        // Allocate buffers - use smaller sizes if no PSRAM
         if (psramFound()) {
+            maxRecordingSize = 32000 * 5;   // 5 seconds with PSRAM
+            maxPlaybackSize = 32000 * 10;   // 10 seconds with PSRAM
             audioBuffer = (int16_t*)ps_malloc(AUDIO_BUFFER_SIZE * sizeof(int16_t));
-            playbackBuffer = (uint8_t*)ps_malloc(MAX_PLAYBACK_SIZE);
-            Serial.println("[AUDIO] Using PSRAM for buffers");
+            playbackBuffer = (uint8_t*)ps_malloc(maxPlaybackSize);
+            recordingBuffer = (uint8_t*)ps_malloc(maxRecordingSize);
+            Serial.printf("[AUDIO] Using PSRAM: rec=%d, play=%d bytes\n", maxRecordingSize, maxPlaybackSize);
         } else {
+            maxRecordingSize = 8000;    // ~0.25 seconds without PSRAM
+            maxPlaybackSize = 32000;    // ~1 second without PSRAM
             audioBuffer = (int16_t*)malloc(AUDIO_BUFFER_SIZE * sizeof(int16_t));
-            playbackBuffer = (uint8_t*)malloc(MAX_PLAYBACK_SIZE);
-            Serial.println("[AUDIO] Using internal RAM for buffers");
+            playbackBuffer = (uint8_t*)malloc(maxPlaybackSize);
+            recordingBuffer = (uint8_t*)malloc(maxRecordingSize);
+            Serial.printf("[AUDIO] Using RAM: rec=%d, play=%d bytes\n", maxRecordingSize, maxPlaybackSize);
         }
 
-        if (!audioBuffer || !playbackBuffer) {
+        if (!audioBuffer || !playbackBuffer || !recordingBuffer) {
             Serial.println("[AUDIO] Buffer allocation failed!");
-            return false;
+            // Try even smaller buffers
+            if (!audioBuffer) {
+                audioBuffer = (int16_t*)malloc(512 * sizeof(int16_t));
+            }
+            if (!playbackBuffer) {
+                maxPlaybackSize = 16000;
+                playbackBuffer = (uint8_t*)malloc(maxPlaybackSize);
+            }
+            if (!recordingBuffer) {
+                maxRecordingSize = 4000;
+                recordingBuffer = (uint8_t*)malloc(maxRecordingSize);
+            }
+            if (!audioBuffer || !playbackBuffer || !recordingBuffer) {
+                Serial.println("[AUDIO] Even minimal buffers failed!");
+                return false;
+            }
+            Serial.println("[AUDIO] Using minimal buffers");
         }
 
         Serial.println("[AUDIO] Audio system initialized");
@@ -168,7 +190,7 @@ public:
         // While recording, always accumulate and send audio data
         if (isRecording && bytesRead > 0) {
             // Accumulate audio data
-            if (recordedSize + bytesRead < MAX_RECORDING_SIZE) {
+            if (recordingBuffer && recordedSize + bytesRead < maxRecordingSize) {
                 memcpy(recordingBuffer + recordedSize, audioBuffer, bytesRead);
                 recordedSize += bytesRead;
             }
@@ -211,13 +233,13 @@ public:
         mbedtls_base64_decode(NULL, 0, &outputLen,
                               (const unsigned char*)base64Data, inputLen);
 
-        if (outputLen > MAX_PLAYBACK_SIZE) {
+        if (outputLen > maxPlaybackSize) {
             Serial.println("[AUDIO] Playback data too large!");
             return;
         }
 
         size_t actualLen = 0;
-        int ret = mbedtls_base64_decode(playbackBuffer, MAX_PLAYBACK_SIZE, &actualLen,
+        int ret = mbedtls_base64_decode(playbackBuffer, maxPlaybackSize, &actualLen,
                                         (const unsigned char*)base64Data, inputLen);
 
         if (ret == 0 && actualLen > 0) {
@@ -229,8 +251,8 @@ public:
     }
 
     void playRawAudio(const uint8_t* data, size_t length) {
-        if (length > MAX_PLAYBACK_SIZE) {
-            Serial.println("[AUDIO] Playback data too large!");
+        if (!playbackBuffer || length > maxPlaybackSize) {
+            Serial.printf("[AUDIO] Playback data too large! (%d > %d)\n", length, maxPlaybackSize);
             return;
         }
 
@@ -238,6 +260,7 @@ public:
         playbackSize = length;
         playbackPos = 0;
         playing = true;
+        Serial.printf("[AUDIO] Playing %d bytes of raw audio\n", length);
     }
 
     bool isPlaying() const { return playing; }
@@ -274,13 +297,14 @@ public:
     }
 
 private:
-    static const size_t MAX_RECORDING_SIZE = 32000 * 5;  // ~5 seconds
-    static const size_t MAX_PLAYBACK_SIZE = 32000 * 10;  // ~10 seconds
+    // Buffer sizes - will be set in begin() based on PSRAM availability
+    size_t maxRecordingSize = 0;
+    size_t maxPlaybackSize = 0;
 
     VoiceCallback voiceCallback;
     int16_t* audioBuffer = nullptr;
     uint8_t* playbackBuffer = nullptr;
-    uint8_t recordingBuffer[MAX_RECORDING_SIZE];
+    uint8_t* recordingBuffer = nullptr;  // Now dynamically allocated
 
     bool isRecording;
     bool voiceDetected;
