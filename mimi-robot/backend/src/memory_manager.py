@@ -82,11 +82,13 @@ class MemoryManager:
             await self.connection.close()
 
     async def get_user_context(self, device_id: str) -> Dict:
-        """Get user context for AI prompt"""
+        """Get user context for AI prompt - Mimi's memory about Diệp Anh"""
         context = {
-            "child_name": None,
+            "child_name": "Diệp Anh",  # Default name
             "preferences": [],
-            "facts": []
+            "facts": [],
+            "recent_topics": [],
+            "mood_history": []
         }
 
         if not self.connection:
@@ -99,17 +101,29 @@ class MemoryManager:
         ) as cursor:
             row = await cursor.fetchone()
             if row:
-                context["child_name"] = row[0]
+                context["child_name"] = row[0] or "Diệp Anh"
                 if row[1]:
                     context["preferences"] = json.loads(row[1])
 
-        # Get user facts
+        # Get all user facts with timestamps
         async with self.connection.execute(
-            "SELECT fact_type, fact_value FROM user_facts WHERE device_id = ? ORDER BY updated_at DESC LIMIT 20",
+            """SELECT fact_type, fact_value, updated_at FROM user_facts
+               WHERE device_id = ?
+               ORDER BY updated_at DESC LIMIT 30""",
             (device_id,)
         ) as cursor:
             facts = await cursor.fetchall()
             context["facts"] = [f"{row[0]}: {row[1]}" for row in facts]
+
+        # Get recent conversation topics (from last 5 conversations)
+        async with self.connection.execute(
+            """SELECT content FROM conversations
+               WHERE device_id = ? AND role = 'user'
+               ORDER BY timestamp DESC LIMIT 5""",
+            (device_id,)
+        ) as cursor:
+            recent = await cursor.fetchall()
+            context["recent_topics"] = [row[0] for row in recent]
 
         return context
 

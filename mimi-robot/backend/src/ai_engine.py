@@ -4,10 +4,11 @@ Handles AI conversation with different providers
 """
 
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from abc import ABC, abstractmethod
 
 from config_manager import ConfigManager
+from mimi_personality import mimi_personality, conversation_memory
 
 logger = logging.getLogger("mimi-ai")
 
@@ -212,8 +213,25 @@ class AIEngine:
         if not self._ready:
             raise RuntimeError("AI Engine not initialized")
 
+        # Check for special intents first (stories, riddles, songs)
+        intent = mimi_personality.detect_intent(user_input)
+        special_response = mimi_personality.get_response_for_intent(intent, context)
+
+        if special_response and intent in ["tell_story", "riddle", "sing"]:
+            # For these intents, use pre-built responses for consistency
+            logger.info(f"Using special response for intent: {intent}")
+            return special_response
+
         # Build system prompt with context
         system_prompt = self._build_system_prompt(context)
+
+        # Add intent hint to help AI respond appropriately
+        if intent == "comfort":
+            system_prompt += "\n\n⚠️ Diệp Anh đang buồn/sợ - hãy an ủi và động viên!"
+        elif intent == "family":
+            system_prompt += "\n\n💕 Diệp Anh đang nói về gia đình - hãy hỏi thăm!"
+        elif intent == "school":
+            system_prompt += "\n\n🏫 Diệp Anh đang nói về trường - hãy quan tâm!"
 
         # Build messages from history
         messages = self._build_messages(user_input, history)
@@ -225,6 +243,9 @@ class AIEngine:
             # Apply safety filter
             response = self._apply_safety_filter(response)
 
+            # Save important memories
+            conversation_memory.extract_important_memory(user_input, response)
+
             return response
 
         except Exception as e:
@@ -232,21 +253,93 @@ class AIEngine:
             return "Mimi đang nghĩ không ra, bạn hỏi lại được không?"
 
     def _build_system_prompt(self, context: Optional[Dict]) -> str:
-        """Build system prompt with user context"""
+        """Build system prompt with user context - Mimi's living memory"""
         prompt = self.system_prompt
 
         if context:
+            child_name = context.get("child_name", "Diệp Anh")
+
             # Add personalized context
-            if context.get("child_name"):
-                prompt += f"\n\nBạn đang nói chuyện với {context['child_name']}."
+            prompt += f"\n\n=== TRÍ NHỚ CỦA MIMI VỀ {child_name.upper()} ==="
 
-            if context.get("preferences"):
-                prefs = ", ".join(context["preferences"])
-                prompt += f"\n{context.get('child_name', 'Bạn nhỏ')} thích: {prefs}."
+            # Group facts by category for better understanding
+            facts = context.get("facts", [])
+            if facts:
+                # Parse facts into categories
+                recent_activities = []
+                likes = []
+                friends = []
+                feelings = []
+                toys = []
+                school_info = []
+                other_facts = []
 
-            if context.get("facts"):
-                facts = "\n".join(f"- {fact}" for fact in context["facts"])
-                prompt += f"\n\nNhững điều bạn nhớ về bạn nhỏ:\n{facts}"
+                for fact in facts:
+                    fact_lower = fact.lower()
+                    if "hoạt động hôm nay" in fact_lower or "hôm nay" in fact_lower:
+                        recent_activities.append(fact)
+                    elif "thích" in fact_lower or "yêu" in fact_lower or "mê" in fact_lower:
+                        likes.append(fact)
+                    elif "bạn bè" in fact_lower or "bạn" in fact_lower:
+                        friends.append(fact)
+                    elif "cảm xúc" in fact_lower or "vui" in fact_lower or "buồn" in fact_lower:
+                        feelings.append(fact)
+                    elif "đồ chơi" in fact_lower:
+                        toys.append(fact)
+                    elif "trường" in fact_lower or "lớp" in fact_lower or "cô giáo" in fact_lower:
+                        school_info.append(fact)
+                    else:
+                        other_facts.append(fact)
+
+                # Build memory section with context
+                if recent_activities:
+                    prompt += f"\n\n📅 GẦN ĐÂY {child_name} đã:"
+                    for act in recent_activities[-3:]:  # Last 3 activities
+                        prompt += f"\n  - {act}"
+                    prompt += f"\n  → Mimi nên hỏi thăm về những hoạt động này!"
+
+                if feelings:
+                    prompt += f"\n\n💭 TÂM TRẠNG gần đây:"
+                    for feel in feelings[-2:]:
+                        prompt += f"\n  - {feel}"
+                    prompt += f"\n  → Mimi nên quan tâm đến cảm xúc của {child_name}!"
+
+                if likes:
+                    prompt += f"\n\n❤️ NHỮNG ĐIỀU {child_name} THÍCH:"
+                    for like in likes[-5:]:
+                        prompt += f"\n  - {like}"
+                    prompt += f"\n  → Mimi có thể gợi ý chơi/nói về những thứ này!"
+
+                if friends:
+                    prompt += f"\n\n👫 BẠN BÈ:"
+                    for friend in friends[-3:]:
+                        prompt += f"\n  - {friend}"
+
+                if toys:
+                    prompt += f"\n\n🧸 ĐỒ CHƠI:"
+                    for toy in toys[-3:]:
+                        prompt += f"\n  - {toy}"
+
+                if school_info:
+                    prompt += f"\n\n🏫 TRƯỜNG HỌC:"
+                    for info in school_info:
+                        prompt += f"\n  - {info}"
+
+                if other_facts:
+                    prompt += f"\n\n📝 GHI NHỚ KHÁC:"
+                    for fact in other_facts[-3:]:
+                        prompt += f"\n  - {fact}"
+
+            # Add proactive behavior instructions
+            prompt += f"""
+
+=== CÁCH MIMI SỬ DỤNG TRÍ NHỚ ===
+- NẾU {child_name} vừa kể gì đó thú vị → Mimi hỏi thêm chi tiết
+- NẾU biết {child_name} thích gì → Mimi có thể gợi ý chơi/nói về nó
+- NẾU biết {child_name} có bạn → Hỏi thăm về bạn đó
+- NẾU biết cảm xúc gần đây → Quan tâm và động viên phù hợp
+- Thỉnh thoảng Mimi chủ động nhắc lại những kỷ niệm: "Này, hôm trước {child_name} có kể..."
+- QUAN TRỌNG: Không lặp lại y chang, mà dùng thông tin một cách tự nhiên"""
 
         return prompt
 
