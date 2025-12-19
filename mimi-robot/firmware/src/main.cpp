@@ -17,9 +17,8 @@ MimiWiFiManager wifiManager;
 WebSocketClient wsClient;
 AudioManager audioManager;
 
-// State
-MimiState currentState = MIMI_IDLE;
-unsigned long lastStateChange = 0;
+// State machine
+MimiState mimiState;
 
 // Task handles
 TaskHandle_t displayTaskHandle = NULL;
@@ -30,7 +29,8 @@ TaskHandle_t networkTaskHandle = NULL;
 void displayTask(void* parameter);
 void audioTask(void* parameter);
 void networkTask(void* parameter);
-void handleWebSocketMessage(const char* message);
+void handleWebSocketMessage(const String& message);
+void handleVoiceData(const uint8_t* data, size_t length);
 
 void setup() {
     Serial.begin(115200);
@@ -56,6 +56,9 @@ void setup() {
     Serial.println("[MAIN] Initializing audio...");
     if (!audioManager.begin()) {
         Serial.println("[MAIN] Audio init failed!");
+    } else {
+        // Set voice callback
+        audioManager.setVoiceCallback(handleVoiceData);
     }
 
     // Initialize WiFi
@@ -65,7 +68,7 @@ void setup() {
     if (!wifiManager.begin()) {
         Serial.println("[MAIN] WiFi not configured, starting setup portal...");
         displayManager.showStatus("Setup WiFi\n192.168.4.1");
-        wifiManager.startConfigPortal();
+        wifiManager.startConfigPortal("Mimi-Setup");
     }
 
     if (wifiManager.isConnected()) {
@@ -78,7 +81,7 @@ void setup() {
         displayManager.showStatus("Connecting server...");
 
         wsClient.setMessageCallback(handleWebSocketMessage);
-        if (wsClient.begin()) {
+        if (wsClient.begin(SERVER_HOST, SERVER_PORT, SERVER_PATH)) {
             Serial.println("[MAIN] Backend connected!");
             displayManager.showStatus("Ready!");
             delay(500);
@@ -91,7 +94,7 @@ void setup() {
 
     // Show happy face - ready to interact
     displayManager.showFace(DisplayManager::HAPPY);
-    currentState = MIMI_IDLE;
+    mimiState.setState(MimiState::IDLE);
 
     // Create FreeRTOS tasks
     Serial.println("[MAIN] Creating tasks...");
@@ -150,29 +153,29 @@ void audioTask(void* parameter) {
     Serial.println("[TASK] Audio task started");
 
     while (true) {
-        if (currentState == MIMI_IDLE || currentState == MIMI_LISTENING) {
-            // Check for voice activity
-            if (audioManager.detectVoice()) {
-                if (currentState == MIMI_IDLE) {
-                    Serial.println("[AUDIO] Voice detected! Starting to listen...");
-                    currentState = MIMI_LISTENING;
-                    displayManager.showFace(DisplayManager::LISTENING);
-                    audioManager.startRecording();
-                }
-            } else if (currentState == MIMI_LISTENING) {
-                // Check if silence detected (end of speech)
-                if (audioManager.isSilent()) {
-                    Serial.println("[AUDIO] Silence detected, processing...");
-                    currentState = MIMI_THINKING;
-                    displayManager.showFace(DisplayManager::THINKING);
+        // Update audio (reads mic, detects voice)
+        audioManager.update();
 
-                    // Get recorded audio and send to backend
-                    String audioData = audioManager.getRecordedAudio();
-                    if (audioData.length() > 0 && wsClient.isConnected()) {
-                        wsClient.sendAudio(audioData);
-                    }
-                    audioManager.stopRecording();
-                }
+        // Update playback if playing
+        if (audioManager.isPlaying()) {
+            audioManager.playbackUpdate();
+        }
+
+        // Handle state transitions based on voice
+        if (mimiState.isState(MimiState::IDLE)) {
+            if (audioManager.isVoiceDetected()) {
+                Serial.println("[AUDIO] Voice detected! Listening...");
+                mimiState.setState(MimiState::LISTENING);
+                displayManager.showFace(DisplayManager::LISTENING);
+                wsClient.sendAudioStart();
+            }
+        } else if (mimiState.isState(MimiState::LISTENING)) {
+            if (!audioManager.isCurrentlyRecording()) {
+                // Recording stopped (silence detected)
+                Serial.println("[AUDIO] Recording ended, waiting for response...");
+                mimiState.setState(MimiState::THINKING);
+                displayManager.showFace(DisplayManager::THINKING);
+                wsClient.sendAudioEnd();
             }
         }
 
@@ -191,23 +194,27 @@ void networkTask(void* parameter) {
         } else if (wifiManager.isConnected()) {
             // Try to reconnect
             Serial.println("[NETWORK] Reconnecting to backend...");
-            wsClient.begin();
+            wsClient.reconnect();
         }
 
         // Check WiFi connection
-        if (!wifiManager.isConnected()) {
-            Serial.println("[NETWORK] WiFi disconnected, reconnecting...");
-            displayManager.showStatus("WiFi lost...");
-            wifiManager.reconnect();
-        }
+        wifiManager.checkConnection();
 
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
+// Handle voice data callback from AudioManager
+void handleVoiceData(const uint8_t* data, size_t length) {
+    // Send audio data to server
+    if (wsClient.isConnected() && mimiState.isState(MimiState::LISTENING)) {
+        wsClient.sendBinary(data, length);
+    }
+}
+
 // Handle messages from backend
-void handleWebSocketMessage(const char* message) {
-    Serial.printf("[WS] Received: %s\n", message);
+void handleWebSocketMessage(const String& message) {
+    Serial.printf("[WS] Received: %s\n", message.c_str());
 
     // Parse JSON message
     StaticJsonDocument<1024> doc;
@@ -230,15 +237,21 @@ void handleWebSocketMessage(const char* message) {
 
         // Update face emotion
         displayManager.showFaceByName(emotion);
-        currentState = MIMI_SPEAKING;
+        mimiState.setState(MimiState::SPEAKING);
 
         // Play audio response
         if (audioBase64 && strlen(audioBase64) > 0) {
-            audioManager.playAudio(audioBase64);
+            audioManager.playBase64Audio(audioBase64);
+
+            // Wait for playback to finish
+            while (audioManager.isPlaying()) {
+                audioManager.playbackUpdate();
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
         }
 
         // Return to idle after speaking
-        currentState = MIMI_IDLE;
+        mimiState.setState(MimiState::IDLE);
         displayManager.showFace(DisplayManager::HAPPY);
 
     } else if (strcmp(type, "emotion") == 0) {
