@@ -13,27 +13,30 @@
 #define SERVER_PATH "/ws"
 
 // ===========================================
-// Hardware Pin Definitions (ESP32-S3-N16R8)
+// Hardware Pin Definitions for XH-S3E-AI_V1.0 Board
+// (Xiaozhi AI ESP32-S3-N16R8)
 // ===========================================
 
-// I2S Audio Pins (Internal codec)
-#define I2S_BCLK_PIN        5
-#define I2S_LRCLK_PIN       4
-#define I2S_DOUT_PIN        6   // Speaker
-#define I2S_DIN_PIN         7   // Microphone
-
-// OLED Display (I2C)
-#define OLED_SDA_PIN        8
-#define OLED_SCL_PIN        9
+// OLED Display (I2C) - IMPORTANT: Different from generic ESP32-S3!
+#define OLED_SDA_PIN        42  // IO42 on XH-S3E-AI board
+#define OLED_SCL_PIN        41  // IO41 on XH-S3E-AI board
 #define OLED_ADDR           0x3C
 #define OLED_WIDTH          128
 #define OLED_HEIGHT         64
 
-// Optional Button
-#define BUTTON_PIN          0   // Boot button
+// I2S Audio Pins (NS4168 amplifier)
+#define I2S_BCLK_PIN        5
+#define I2S_LRCLK_PIN       4
+#define I2S_DOUT_PIN        6   // Speaker output
+#define I2S_DIN_PIN         7   // Microphone input
 
-// LED Indicator (if available)
-#define LED_PIN             48  // RGB LED on some boards
+// Buttons on XH-S3E-AI board
+#define BUTTON_PIN          0   // IO0 - Hold to connect, press to wake AI
+#define VOLUME_UP_PIN       -1  // TODO: Find actual pin
+#define VOLUME_DOWN_PIN     -1  // TODO: Find actual pin
+
+// LED Indicator
+#define LED_PIN             48  // RGB LED (if available)
 
 // ===========================================
 // Audio Configuration
