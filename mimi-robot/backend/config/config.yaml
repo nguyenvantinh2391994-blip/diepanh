@@ -58,7 +58,7 @@ text_to_speech:
     # Microsoft Edge TTS (free)
     voice: "vi-VN-HoaiMyNeural"
     rate: "+0%"
-    pitch: "+5%"
+    pitch: "+0Hz"
 
 # Memory & Personalization
 memory:
