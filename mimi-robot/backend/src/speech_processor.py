@@ -54,8 +54,18 @@ class WhisperSTT(STTProvider):
         import numpy as np
         import wave
         import struct
+        import os
 
         try:
+            # Save audio to a debug file for inspection
+            debug_path = os.path.join(os.path.dirname(__file__), "..", "debug_audio.wav")
+            with wave.open(debug_path, 'wb') as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(16000)
+                wav_file.writeframes(audio_data)
+            logger.info(f"DEBUG: Saved audio to {debug_path}")
+
             # Create proper WAV file from raw PCM data
             # Audio format: 16-bit mono, 16000 Hz
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -77,10 +87,12 @@ class WhisperSTT(STTProvider):
                 fp16=False
             )
 
-            import os
+            transcribed_text = result.get("text", "").strip()
+            logger.info(f"Whisper result: '{transcribed_text}'")
+
             os.unlink(temp_path)
 
-            return result.get("text", "").strip()
+            return transcribed_text
 
         except Exception as e:
             logger.error(f"Whisper transcription error: {e}")
