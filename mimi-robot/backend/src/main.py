@@ -63,16 +63,41 @@ def setup_logging(daemon_mode: bool = False):
     )
 
 
+def is_process_running(pid: int) -> bool:
+    """Kiểm tra process có đang chạy không"""
+    if sys.platform == "win32":
+        # Windows: dùng tasklist
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}"],
+                capture_output=True,
+                text=True
+            )
+            return str(pid) in result.stdout
+        except Exception:
+            return False
+    else:
+        # Linux/Mac: dùng signal 0
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+
+
 def get_running_pid() -> int | None:
     """Lấy PID của process đang chạy"""
     if PID_FILE.exists():
         try:
             pid = int(PID_FILE.read_text().strip())
             # Kiểm tra process còn sống không
-            os.kill(pid, 0)
-            return pid
-        except (ValueError, ProcessLookupError, PermissionError):
-            # Process không còn tồn tại
+            if is_process_running(pid):
+                return pid
+            else:
+                # Process không còn tồn tại
+                PID_FILE.unlink(missing_ok=True)
+        except (ValueError, OSError):
             PID_FILE.unlink(missing_ok=True)
     return None
 
