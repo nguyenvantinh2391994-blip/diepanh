@@ -56,9 +56,10 @@ text_to_speech:
 
   edge:
     # Microsoft Edge TTS (free)
+    # vi-VN-HoaiMyNeural = Giọng nữ Việt Nam
     voice: "vi-VN-HoaiMyNeural"
-    rate: "+0%"
-    pitch: "+0Hz"
+    rate: "+10%"      # Nói nhanh hơn một chút - năng động
+    pitch: "+15Hz"    # Cao giọng hơn - nghe trẻ con, dễ thương hơn
     output_format: "pcm"  # "mp3" or "pcm" - ESP32 needs PCM
 
 # Memory & Personalization
