@@ -211,6 +211,84 @@ class EdgeTTS(TTSProvider):
             return b""
 
 
+class GeminiTTS(TTSProvider):
+    """Google Gemini 2.5 Flash TTS"""
+
+    def __init__(self, config: dict):
+        self.api_key = config.get("api_key", "")
+        self.model = config.get("model", "gemini-2.5-flash-preview-tts")
+        self.voice = config.get("voice", "Kore")  # Friendly female voice
+        self.fallback_tts = None  # Will be set to EdgeTTS
+
+    async def initialize(self):
+        if not self.api_key:
+            logger.warning("Gemini API key not set - TTS will fallback to Edge")
+            return
+
+        logger.info(f"Gemini TTS initialized with voice: {self.voice}")
+
+    def set_fallback(self, fallback: TTSProvider):
+        """Set fallback TTS provider (Edge TTS)"""
+        self.fallback_tts = fallback
+
+    async def synthesize(self, text: str) -> bytes:
+        if not self.api_key:
+            logger.warning("Gemini API key not available, using fallback")
+            if self.fallback_tts:
+                return await self.fallback_tts.synthesize(text)
+            return b""
+
+        try:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=self.api_key)
+
+            response = client.models.generate_content(
+                model=self.model,
+                contents=text,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                                voice_name=self.voice,
+                            )
+                        )
+                    ),
+                ),
+            )
+
+            # Get audio data from response
+            audio_data = response.candidates[0].content.parts[0].inline_data.data
+
+            # Gemini returns WAV, need to convert to PCM
+            pcm_data = self._wav_to_pcm(audio_data)
+            logger.info(f"Gemini TTS: generated {len(pcm_data)} bytes PCM")
+            return pcm_data
+
+        except Exception as e:
+            logger.error(f"Gemini TTS error: {e}, using fallback")
+            if self.fallback_tts:
+                return await self.fallback_tts.synthesize(text)
+            return b""
+
+    def _wav_to_pcm(self, wav_data: bytes) -> bytes:
+        """Convert WAV to raw PCM (16kHz, 16-bit, mono)"""
+        try:
+            from pydub import AudioSegment
+
+            audio = AudioSegment.from_wav(io.BytesIO(wav_data))
+            audio = audio.set_frame_rate(16000)
+            audio = audio.set_channels(1)
+            audio = audio.set_sample_width(2)
+
+            return audio.raw_data
+        except Exception as e:
+            logger.error(f"WAV to PCM conversion error: {e}")
+            return b""
+
+
 class GoogleTTS(TTSProvider):
     """Google Cloud Text-to-Speech"""
 
@@ -294,15 +372,30 @@ class SpeechProcessor:
 
         logger.info(f"Initializing TTS provider: {tts_provider_name}")
 
+        # Always create Edge TTS as fallback
+        edge_tts_config = self.config.get_section("text_to_speech").get("edge", {})
+        edge_tts_config.update({
+            "voice": self.config.get("text_to_speech.edge.voice", "vi-VN-HoaiMyNeural"),
+            "rate": self.config.get("text_to_speech.edge.rate", "+10%"),
+            "pitch": self.config.get("text_to_speech.edge.pitch", "+15Hz"),
+            "output_format": "pcm"
+        })
+        edge_fallback = EdgeTTS(edge_tts_config)
+        await edge_fallback.initialize()
+
         if tts_provider_name == "edge":
-            self.tts_provider = EdgeTTS(tts_config)
+            self.tts_provider = edge_fallback
+        elif tts_provider_name == "gemini":
+            gemini_config = self.config.get_section("text_to_speech").get("gemini", {})
+            self.tts_provider = GeminiTTS(gemini_config)
+            self.tts_provider.set_fallback(edge_fallback)
+            await self.tts_provider.initialize()
         elif tts_provider_name == "google":
             self.tts_provider = GoogleTTS(tts_config)
-        else:
-            logger.warning(f"Unknown TTS provider: {tts_provider_name}")
-
-        if self.tts_provider:
             await self.tts_provider.initialize()
+        else:
+            logger.warning(f"Unknown TTS provider: {tts_provider_name}, using Edge")
+            self.tts_provider = edge_fallback
 
         self._ready = True
         logger.info("Speech Processor initialized")

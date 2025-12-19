@@ -46,14 +46,22 @@ speech_to_text:
 
 # Text-to-Speech Configuration
 text_to_speech:
-  # Options: "google", "edge", "local"
-  provider: "edge"
+  # Options: "gemini" (có quota), "edge" (miễn phí), "google" (trả phí)
+  # KHUYÊN DÙNG: "gemini" - giọng tự nhiên nhất, có fallback về edge nếu hết quota
+  provider: "gemini"
   language: "vi-VN"
   voice: "vi-VN-HoaiMyNeural"  # Female Vietnamese voice
+
+  # Gemini 2.5 Flash TTS - Giọng tự nhiên nhất
+  gemini:
+    api_key: "${GEMINI_API_KEY}"
+    model: "gemini-2.5-flash-preview-tts"
+    voice: "Kore"  # Giọng nữ thân thiện, dễ thương
 
   google:
     credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
 
+  # Edge TTS - Backup miễn phí (tự động dùng khi Gemini hết quota)
   edge:
     # Microsoft Edge TTS (free)
     # vi-VN-HoaiMyNeural = Giọng nữ Việt Nam
@@ -159,3 +167,10 @@ audio:
   sample_rate: 16000
   channels: 1
   format: "wav"
+
+# Google Sheets - Lưu trữ dữ liệu cloud
+google_sheets:
+  enabled: true
+  credentials_path: "./src/credentials.json"
+  spreadsheet_name: "mimi"
+  sheet_name: "2025"

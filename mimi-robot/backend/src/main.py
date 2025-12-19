@@ -19,6 +19,7 @@ from ai_engine import AIEngine
 from speech_processor import SpeechProcessor
 from memory_manager import MemoryManager
 from connection_manager import ConnectionManager
+from sheets_manager import SheetsManager
 
 # Setup logging
 logging.basicConfig(
@@ -50,6 +51,16 @@ speech_processor = SpeechProcessor(config)
 memory_manager = MemoryManager(config)
 connection_manager = ConnectionManager()
 
+# Google Sheets manager (optional)
+sheets_config = config.get_section("google_sheets")
+sheets_manager = None
+if sheets_config.get("enabled", False):
+    sheets_manager = SheetsManager(
+        credentials_path=sheets_config.get("credentials_path", "./src/credentials.json"),
+        spreadsheet_name=sheets_config.get("spreadsheet_name", "mimi"),
+        sheet_name=sheets_config.get("sheet_name", "2025")
+    )
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -59,6 +70,14 @@ async def startup_event():
     await ai_engine.initialize()
     await speech_processor.initialize()
     await memory_manager.initialize()
+
+    # Initialize Google Sheets (optional)
+    if sheets_manager:
+        success = await sheets_manager.initialize()
+        if success:
+            logger.info("Google Sheets logging enabled")
+        else:
+            logger.warning("Google Sheets not available - logging disabled")
 
     logger.info("All services initialized successfully!")
 
@@ -185,6 +204,15 @@ async def voice_endpoint(request: Request):
             # Save conversation and extract facts
             await memory_manager.save_conversation(device_id, command_text, response_text)
             await memory_manager.extract_and_save_facts(device_id, command_text, response_text)
+
+            # Log to Google Sheets (if enabled)
+            if sheets_manager and sheets_manager.is_ready():
+                await sheets_manager.log_conversation(
+                    user_message=command_text,
+                    ai_response=response_text,
+                    learned_facts=None,
+                    emotion=None
+                )
 
         # Generate TTS audio
         logger.info(f"[HTTP] Generating TTS for: {response_text}")
@@ -411,6 +439,15 @@ async def process_text_input(websocket: WebSocket, device_id: str, text: str):
 
         # Determine emotion based on response
         emotion = await ai_engine.detect_emotion(response)
+
+        # Log to Google Sheets (if enabled)
+        if sheets_manager and sheets_manager.is_ready():
+            await sheets_manager.log_conversation(
+                user_message=text,
+                ai_response=response,
+                learned_facts=None,
+                emotion=emotion
+            )
 
         # Send text response first
         await websocket.send_json({
