@@ -223,9 +223,12 @@ class GeminiTTS(TTSProvider):
     async def initialize(self):
         if not self.api_key:
             logger.warning("Gemini API key not set - TTS will fallback to Edge")
+            logger.warning("Kiem tra file .env trong thu muc backend/ co GEMINI_API_KEY=xxx")
             return
 
-        logger.info(f"Gemini TTS initialized with voice: {self.voice}")
+        # Mask API key for logging (show first 10 chars)
+        masked_key = self.api_key[:10] + "..." if len(self.api_key) > 10 else "***"
+        logger.info(f"Gemini TTS initialized with voice: {self.voice}, API key: {masked_key}")
 
     def set_fallback(self, fallback: TTSProvider):
         """Set fallback TTS provider (Edge TTS)"""
