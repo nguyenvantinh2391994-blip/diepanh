@@ -30,7 +30,7 @@
 #define I2S_BCLK_PIN        15  // Bit Clock
 #define I2S_LRCLK_PIN       16  // Left/Right Clock (Word Select)
 #define I2S_DOUT_PIN        7   // Speaker output (Data Out)
-#define I2S_DIN_PIN         8   // Microphone input (to be verified)
+#define I2S_DIN_PIN         4   // Microphone input (INMP441)
 
 // Buttons on XH-S3E-AI board
 #define BUTTON_PIN          0   // IO0 - Hold to connect, press to wake AI
@@ -70,7 +70,7 @@
 // ===========================================
 // Debug Configuration
 // ===========================================
-#define DEBUG_AUDIO         0
+#define DEBUG_AUDIO         1   // Bật debug audio để xem mic có hoạt động
 #define DEBUG_NETWORK       1
 #define DEBUG_DISPLAY       0
 
