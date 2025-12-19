@@ -83,6 +83,84 @@ class OpenAIProvider(AIProvider):
         return response.choices[0].message.content
 
 
+class OllamaProvider(AIProvider):
+    """
+    Ollama - Chạy AI hoàn toàn LOCAL, MIỄN PHÍ
+    Không cần internet, không gửi dữ liệu đi đâu
+    """
+
+    def __init__(self, config: dict):
+        self.host = config.get("host", "http://localhost:11434")
+        self.model = config.get("model", "llama3.2")  # hoặc qwen2.5, gemma2
+        self.temperature = config.get("temperature", 0.7)
+        self.session = None
+
+    async def initialize(self):
+        import aiohttp
+        self.session = aiohttp.ClientSession()
+
+        # Kiểm tra Ollama đang chạy
+        try:
+            async with self.session.get(f"{self.host}/api/tags") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    models = [m["name"] for m in data.get("models", [])]
+                    logger.info(f"Ollama connected. Available models: {models}")
+
+                    if self.model not in [m.split(":")[0] for m in models]:
+                        logger.warning(f"Model {self.model} not found. Run: ollama pull {self.model}")
+                else:
+                    logger.error("Ollama not responding")
+        except Exception as e:
+            logger.error(f"Cannot connect to Ollama: {e}")
+            logger.info("Hướng dẫn cài Ollama:")
+            logger.info("1. Tải từ: https://ollama.ai/download")
+            logger.info("2. Cài đặt và chạy Ollama")
+            logger.info(f"3. Chạy: ollama pull {self.model}")
+
+    async def generate(self, messages: List[Dict], system_prompt: str) -> str:
+        if not self.session:
+            raise RuntimeError("Ollama session not initialized")
+
+        # Ollama API format
+        full_messages = [{"role": "system", "content": system_prompt}]
+        for msg in messages:
+            full_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+
+        payload = {
+            "model": self.model,
+            "messages": full_messages,
+            "stream": False,
+            "options": {
+                "temperature": self.temperature
+            }
+        }
+
+        try:
+            async with self.session.post(
+                f"{self.host}/api/chat",
+                json=payload
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data["message"]["content"]
+                else:
+                    error = await resp.text()
+                    logger.error(f"Ollama error: {error}")
+                    return "Mimi đang gặp trục trặc, thử lại nhé!"
+
+        except Exception as e:
+            logger.error(f"Ollama request failed: {e}")
+            return "Mimi không thể suy nghĩ được, kiểm tra Ollama nhé!"
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
+
+
 class AIEngine:
     """Main AI Engine that manages providers and conversation"""
 
@@ -103,7 +181,10 @@ class AIEngine:
 
         logger.info(f"Initializing AI provider: {provider_name}")
 
-        if provider_name == "anthropic":
+        if provider_name == "ollama":
+            self.provider = OllamaProvider(ai_config)
+            logger.info("Using Ollama (LOCAL, FREE, PRIVATE)")
+        elif provider_name == "anthropic":
             self.provider = AnthropicProvider(ai_config)
         elif provider_name == "openai":
             self.provider = OpenAIProvider(ai_config)

@@ -7,15 +7,24 @@ server:
 
 # AI Configuration - Choose your provider
 ai:
-  # Options: "openai", "anthropic", "local"
-  provider: "anthropic"
+  # Options: "ollama" (FREE, LOCAL), "anthropic", "openai"
+  # KHUYÊN DÙNG: "ollama" - Miễn phí, chạy offline, dữ liệu riêng tư
+  provider: "ollama"
 
+  # Ollama - AI chạy LOCAL, MIỄN PHÍ, RIÊNG TƯ
+  ollama:
+    host: "http://localhost:11434"
+    model: "qwen2.5:7b"  # Model của bạn - rất tốt cho tiếng Việt!
+    temperature: 0.7
+
+  # OpenAI - Trả phí, cần internet
   openai:
     api_key: "${OPENAI_API_KEY}"
     model: "gpt-4o-mini"
     temperature: 0.7
     max_tokens: 500
 
+  # Anthropic Claude - Trả phí, cần internet
   anthropic:
     api_key: "${ANTHROPIC_API_KEY}"
     model: "claude-3-5-sonnet-20241022"
