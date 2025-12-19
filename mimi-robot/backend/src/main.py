@@ -240,10 +240,14 @@ WAKE_WORDS = [
     # Variations Whisper có thể nghe thành
     "mì mì", "mi mì", "mì mi", "mỳ mỳ", "mỉ mỉ",
     "mê mê", "me me", "mề mề",
-    "hiểu", "hiu", "iu",  # Whisper đôi khi nghe "mimi ơi" thành "hiểu"
+    "hiểu", "hiu", "iu",
     "mimi oi", "mimi ơi", "mì mì ơi",
     "ê mimi", "hey mimi", "hê mimi",
-    "alo", "a lô",  # Thêm wake word phụ dễ nhận hơn
+    "alo", "a lô",
+    # Từ log thực tế - Whisper nghe thành:
+    "mì no", "mi no", "mino",  # "Mimi" -> "Mì no"
+    "mình mi", "minh mi",  # "Mimi" -> "Mình mi"
+    "mình", "minh",  # Đơn giản
 ]
 
 
