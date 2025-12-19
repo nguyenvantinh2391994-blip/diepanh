@@ -10,7 +10,7 @@
 // Thay YOUR_COMPUTER_IP bằng IP máy tính của bạn
 // Chạy "ipconfig" trên Windows để xem IP
 // ===========================================
-#define SERVER_HOST "192.168.1.100"  // TODO: Thay bằng IP máy tính của bạn!
+#define SERVER_HOST "192.168.88.254"  // IP máy tính của bạn
 #define SERVER_PORT 8080
 #define SERVER_PATH "/ws"
 
