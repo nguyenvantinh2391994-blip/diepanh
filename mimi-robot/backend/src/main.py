@@ -94,33 +94,59 @@ def stop_existing_instance() -> bool:
     if pid:
         print(f"🛑 Đang dừng Mimi server cũ (PID: {pid})...")
         try:
-            os.kill(pid, signal.SIGTERM)
-            # Đợi process tắt
             import time
-            for _ in range(10):  # Đợi tối đa 5 giây
-                time.sleep(0.5)
-                try:
-                    os.kill(pid, 0)
-                except ProcessLookupError:
-                    print("✅ Đã dừng server cũ")
-                    PID_FILE.unlink(missing_ok=True)
-                    return True
-            # Nếu vẫn chưa tắt, kill mạnh
-            os.kill(pid, signal.SIGKILL)
+
+            if is_windows():
+                # Windows: dùng taskkill
+                import subprocess
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid)],
+                    capture_output=True
+                )
+                time.sleep(1)
+            else:
+                # Linux/Mac: dùng signal
+                os.kill(pid, signal.SIGTERM)
+                # Đợi process tắt
+                for _ in range(10):  # Đợi tối đa 5 giây
+                    time.sleep(0.5)
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        break
+                else:
+                    # Nếu vẫn chưa tắt, kill mạnh
+                    os.kill(pid, signal.SIGKILL)
+
+            print("✅ Đã dừng server cũ")
             PID_FILE.unlink(missing_ok=True)
-            print("✅ Đã buộc dừng server cũ")
             return True
+
         except ProcessLookupError:
             PID_FILE.unlink(missing_ok=True)
             return True
         except PermissionError:
             print(f"❌ Không có quyền dừng process {pid}")
             return False
+        except Exception as e:
+            print(f"⚠️ Lỗi khi dừng: {e}")
+            PID_FILE.unlink(missing_ok=True)
+            return True
     return True
 
 
+def is_windows():
+    """Kiểm tra có phải Windows không"""
+    return sys.platform == "win32"
+
+
 def daemonize():
-    """Chuyển process thành daemon (chạy ẩn)"""
+    """Chuyển process thành daemon (chạy ẩn) - chỉ Linux/Mac"""
+    if is_windows():
+        # Windows không hỗ trợ fork, bỏ qua daemonize
+        # Server sẽ chạy trong subprocess riêng
+        return
+
     # Fork lần 1
     try:
         pid = os.fork()
@@ -156,6 +182,44 @@ def daemonize():
     log_fd = os.open(str(LOG_FILE), os.O_WRONLY | os.O_CREAT | os.O_APPEND)
     os.dup2(log_fd, sys.stdout.fileno())
     os.dup2(log_fd, sys.stderr.fileno())
+
+
+def start_background_windows():
+    """Khởi động server ẩn trên Windows bằng subprocess"""
+    import subprocess
+
+    # Tìm pythonw.exe để chạy không có console window
+    python_exe = sys.executable
+    pythonw_exe = python_exe.replace("python.exe", "pythonw.exe")
+
+    # Nếu có pythonw thì dùng, không thì dùng python với CREATE_NO_WINDOW
+    script_path = Path(__file__).resolve()
+
+    # Tạo startup info để ẩn window
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+
+    # Chạy với flag --foreground trong subprocess (vì đã detach rồi)
+    cmd = [python_exe, str(script_path), "--foreground"]
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=open(LOG_FILE, 'a', encoding='utf-8'),
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        startupinfo=startupinfo,
+        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+        cwd=str(script_path.parent)
+    )
+
+    # Ghi PID
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PID_FILE.write_text(str(process.pid))
+
+    print(f"✅ Mimi server đã khởi động (PID: {process.pid})")
+    print(f"📝 Log file: {LOG_FILE}")
+    return process.pid
 
 
 def show_status():
@@ -639,8 +703,15 @@ def run_server(daemon_mode: bool = True):
 
     if daemon_mode:
         print("🚀 Khởi động Mimi server (chế độ ẩn)...")
-        daemonize()
-        setup_logging(daemon_mode=True)
+
+        if is_windows():
+            # Windows: chạy subprocess riêng
+            start_background_windows()
+            sys.exit(0)  # Parent thoát sau khi spawn xong
+        else:
+            # Linux/Mac: fork daemon
+            daemonize()
+            setup_logging(daemon_mode=True)
     else:
         setup_logging(daemon_mode=False)
         print("🚀 Khởi động Mimi server (chế độ interactive)...")
