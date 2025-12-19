@@ -96,9 +96,8 @@ async def health():
 @app.post("/api/voice")
 async def voice_endpoint(request: Request):
     """
-    Simple HTTP endpoint for voice processing.
-    Receives raw PCM audio, returns MP3 audio response.
-    More reliable than WebSocket for single request/response.
+    HTTP endpoint for voice processing.
+    Receives raw PCM audio, returns PCM audio response.
     """
     try:
         # Receive raw audio data
@@ -106,25 +105,39 @@ async def voice_endpoint(request: Request):
         logger.info(f"[HTTP] Received {len(audio_data)} bytes of audio")
 
         if len(audio_data) < 1000:
-            logger.warning("[HTTP] Audio too short, sending test response")
-            # Still send a response for testing
-            test_text = "Mimi không nghe rõ, bạn nói lại nhé!"
+            logger.warning("[HTTP] Audio too short")
+            response_text = "Mimi không nghe rõ, bạn nói lại nhé!"
         else:
-            # TEST MODE: Always respond with test message
-            test_text = "Xin chào! Mimi nghe thấy bạn rồi!"
-            logger.info(f"[HTTP] Sending test response: {test_text}")
+            # Speech-to-Text
+            logger.info("[HTTP] Converting speech to text...")
+            recognized_text = await speech_processor.speech_to_text(audio_data)
+
+            if not recognized_text or recognized_text.strip() == "":
+                logger.info("[HTTP] No speech detected")
+                response_text = "Mimi không nghe rõ, bạn nói lại được không?"
+            else:
+                logger.info(f"[HTTP] Recognized: {recognized_text}")
+
+                # Get AI response
+                logger.info("[HTTP] Generating AI response...")
+                response_text = await ai_engine.generate_response(
+                    user_input=recognized_text,
+                    context={},
+                    history=[]
+                )
+                logger.info(f"[HTTP] AI Response: {response_text}")
 
         # Generate TTS audio
-        tts_audio = await speech_processor.text_to_speech(test_text)
+        logger.info(f"[HTTP] Generating TTS for: {response_text}")
+        tts_audio = await speech_processor.text_to_speech(response_text)
 
         if tts_audio:
             logger.info(f"[HTTP] Generated {len(tts_audio)} bytes of PCM audio")
-            # Return raw PCM audio for ESP32
             return Response(
                 content=tts_audio,
                 media_type="audio/pcm",
                 headers={
-                    "X-Response-Text": base64.b64encode(test_text.encode()).decode(),
+                    "X-Response-Text": base64.b64encode(response_text.encode()).decode(),
                     "X-Sample-Rate": "16000",
                     "X-Bits": "16",
                     "X-Channels": "1"
@@ -135,7 +148,7 @@ async def voice_endpoint(request: Request):
             return Response(content=b"", status_code=500)
 
     except Exception as e:
-        logger.error(f"[HTTP] Error: {e}")
+        logger.error(f"[HTTP] Error: {e}", exc_info=True)
         return Response(content=str(e).encode(), status_code=500)
 
 
