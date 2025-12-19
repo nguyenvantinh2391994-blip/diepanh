@@ -192,8 +192,9 @@ void loop() {
 
         case MimiState::LISTENING:
             // Listening animation handled by display task
+            // Wait at least 3 seconds before checking if recording stopped
             if (!audioManager.isCurrentlyRecording() &&
-                mimiState.getStateTime() > 500) {
+                mimiState.getStateTime() > 3000) {
                 // Recording stopped
                 mimiState.setState(MimiState::THINKING);
                 displayManager.showFace(DisplayManager::THINKING);
@@ -274,7 +275,7 @@ void onWebSocketMessage(const String& message) {
 
     const char* type = doc["type"];
 
-    if (strcmp(type, "response") == 0) {
+    if (strcmp(type, "text") == 0) {
         // Text response from AI
         const char* text = doc["text"];
         if (text) {

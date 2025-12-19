@@ -120,9 +120,9 @@ public:
         esp_err_t err = i2s_read(I2S_NUM_0, audioBuffer, AUDIO_BUFFER_SIZE * sizeof(int16_t),
                                   &bytesRead, pdMS_TO_TICKS(10));
 
-        // Debug output every second
+        // Debug output every 200ms to catch short LISTENING state
         static unsigned long lastDebugTime = 0;
-        if (millis() - lastDebugTime > 1000) {
+        if (millis() - lastDebugTime > 200) {
             Serial.printf("[MIC DEBUG] i2s_read: err=%d, bytesRead=%d\n", err, bytesRead);
             lastDebugTime = millis();
         }

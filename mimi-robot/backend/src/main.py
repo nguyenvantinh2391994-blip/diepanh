@@ -183,10 +183,20 @@ async def process_voice_input(websocket: WebSocket, device_id: str, audio_data: 
 
         if not text or text.strip() == "":
             logger.info("No speech detected")
+            fallback_text = "Mimi không nghe rõ, bạn nói lại được không?"
             await websocket.send_json({
                 "type": "text",
-                "text": "Mimi không nghe rõ, bạn nói lại được không?"
+                "text": fallback_text
             })
+            # Also send audio for the fallback message
+            audio_data = await speech_processor.text_to_speech(fallback_text)
+            if audio_data:
+                import base64
+                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                await websocket.send_json({
+                    "type": "audio",
+                    "data": audio_base64
+                })
             return
 
         logger.info(f"Recognized: {text}")
