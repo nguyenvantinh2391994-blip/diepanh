@@ -8,7 +8,7 @@
 
 #include <Arduino.h>
 #include <driver/i2s.h>
-#include <base64.h>
+#include "mbedtls/base64.h"
 #include "config.h"
 
 typedef void (*VoiceCallback)(const uint8_t* data, size_t length);
@@ -176,16 +176,24 @@ public:
             return;
         }
 
-        // Decode base64
-        size_t decodedLen = base64_decode_expected_len(strlen(base64Data));
-        if (decodedLen > MAX_PLAYBACK_SIZE) {
+        // Decode base64 using mbedtls
+        size_t inputLen = strlen(base64Data);
+        size_t outputLen = 0;
+
+        // First call to get required output length
+        mbedtls_base64_decode(NULL, 0, &outputLen,
+                              (const unsigned char*)base64Data, inputLen);
+
+        if (outputLen > MAX_PLAYBACK_SIZE) {
             Serial.println("[AUDIO] Playback data too large!");
             return;
         }
 
-        size_t actualLen = base64_decode_chars(base64Data, strlen(base64Data), (char*)playbackBuffer);
+        size_t actualLen = 0;
+        int ret = mbedtls_base64_decode(playbackBuffer, MAX_PLAYBACK_SIZE, &actualLen,
+                                        (const unsigned char*)base64Data, inputLen);
 
-        if (actualLen > 0) {
+        if (ret == 0 && actualLen > 0) {
             playbackSize = actualLen;
             playbackPos = 0;
             playing = true;

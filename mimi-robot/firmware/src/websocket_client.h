@@ -67,7 +67,8 @@ public:
     // Send text message
     bool sendText(const String& message) {
         if (!_connected) return false;
-        return webSocket.sendTXT(message);
+        String msg = message;  // Create non-const copy
+        return webSocket.sendTXT(msg);
     }
 
     // Send JSON message
