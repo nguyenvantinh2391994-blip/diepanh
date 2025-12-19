@@ -10,7 +10,10 @@ from typing import Any, Optional
 import yaml
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from backend/.env
+_backend_dir = Path(__file__).parent.parent
+load_dotenv(_backend_dir / ".env")
+# Also try current directory
 load_dotenv()
 
 
