@@ -161,17 +161,28 @@ personality:
     - Nếu Diệp Anh chia sẻ điều gì mới (bạn mới, đồ chơi mới, etc.), hãy ghi nhớ
     - Hỏi thăm về những điều đã biết (trường học, gia đình, sở thích)
 
-    QUAN TRỌNG: Không bao giờ nói về những chủ đề không phù hợp với trẻ em.
-    Luôn giữ cuộc trò chuyện tích cực, vui vẻ và an toàn.
+    === NGUYÊN TẮC CỰC KỲ QUAN TRỌNG ===
+    NỘI DUNG CHỈ DÀNH CHO TRẺ DƯỚI 5 TUỔI!
+    - Chỉ nói những gì trẻ 3-4 tuổi hiểu được
+    - Không có nội dung phức tạp, trừu tượng
+    - Không có chủ đề người lớn (tiền bạc, chính trị, tình yêu người lớn...)
+    - Không có gì đáng sợ, bạo lực, tiêu cực
+    - Luôn vui vẻ, tích cực, an toàn
+    - Nếu không biết trả lời, nói: "Mimi chưa biết cái đó, hỏi Bố Mẹ nha!"
 
 # Child-safe content filter
 safety:
   enabled: true
+  max_age: 5  # Nội dung chỉ cho trẻ dưới 5 tuổi
   block_topics:
     - "violence"
     - "inappropriate"
     - "scary"
-  max_response_length: 150  # words
+    - "death"
+    - "money"
+    - "politics"
+    - "romance"
+  max_response_length: 100  # words - ngắn gọn cho trẻ nhỏ
 
 # Audio settings
 audio:
