@@ -31,10 +31,9 @@
 #define I2S_LRCLK_PIN       16  // Left/Right Clock for speaker
 #define I2S_DOUT_PIN        7   // Speaker output (Data Out)
 
-// I2S Microphone Pins (Xiaozhi AI board - thường dùng pins riêng)
-#define MIC_BCLK_PIN        38  // Mic Bit Clock
-#define MIC_WS_PIN          39  // Mic Word Select
-#define MIC_DATA_PIN        40  // Mic Data Input
+// PDM Microphone Pins (Xiaozhi AI board - dùng PDM mode)
+#define MIC_CLK_PIN         5   // PDM Clock
+#define MIC_DATA_PIN        4   // PDM Data
 
 // Buttons on XH-S3E-AI board
 #define BUTTON_PIN          0   // IO0 - Hold to connect, press to wake AI

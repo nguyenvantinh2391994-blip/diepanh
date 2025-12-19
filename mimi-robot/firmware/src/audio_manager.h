@@ -18,9 +18,9 @@ public:
     AudioManager() : voiceCallback(nullptr), isRecording(false), voiceDetected(false) {}
 
     bool begin() {
-        // Configure I2S for input (microphone)
+        // Configure I2S for PDM microphone input
         i2s_config_t i2s_config_rx = {
-            .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+            .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM),
             .sample_rate = AUDIO_SAMPLE_RATE,
             .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
             .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
@@ -33,25 +33,26 @@ public:
             .fixed_mclk = 0
         };
 
+        // PDM mic uses only CLK and DATA pins
         i2s_pin_config_t pin_config_rx = {
-            .bck_io_num = MIC_BCLK_PIN,      // Mic uses separate I2S pins
-            .ws_io_num = MIC_WS_PIN,
+            .bck_io_num = I2S_PIN_NO_CHANGE,
+            .ws_io_num = MIC_CLK_PIN,        // PDM CLK on WS pin
             .data_out_num = I2S_PIN_NO_CHANGE,
-            .data_in_num = MIC_DATA_PIN
+            .data_in_num = MIC_DATA_PIN      // PDM DATA
         };
 
-        Serial.printf("[AUDIO] Mic pins: BCLK=%d, WS=%d, DATA=%d\n",
-                      MIC_BCLK_PIN, MIC_WS_PIN, MIC_DATA_PIN);
+        Serial.printf("[AUDIO] PDM Mic pins: CLK=%d, DATA=%d\n",
+                      MIC_CLK_PIN, MIC_DATA_PIN);
 
         esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config_rx, 0, NULL);
         if (err != ESP_OK) {
-            Serial.printf("[AUDIO] I2S RX install failed: %d\n", err);
+            Serial.printf("[AUDIO] I2S PDM RX install failed: %d\n", err);
             return false;
         }
 
         err = i2s_set_pin(I2S_NUM_0, &pin_config_rx);
         if (err != ESP_OK) {
-            Serial.printf("[AUDIO] I2S RX pin config failed: %d\n", err);
+            Serial.printf("[AUDIO] I2S PDM RX pin config failed: %d\n", err);
             return false;
         }
 
