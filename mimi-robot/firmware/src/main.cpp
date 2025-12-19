@@ -89,7 +89,7 @@ void setup() {
     if (!wifiManager.begin()) {
         Serial.println("[INIT] Starting WiFi config portal...");
         displayManager.showStatus("Cau hinh WiFi");
-        displayManager.showMessage("Ket noi WiFi:\nMimi-Setup");
+        displayManager.showText("Ket noi WiFi:\nMimi-Setup");
         wifiManager.startConfigPortal("Mimi-Setup");
     }
 
@@ -251,7 +251,7 @@ void audioTask(void* parameter) {
 // Display task - handles animations
 void displayTask(void* parameter) {
     while (true) {
-        displayManager.updateAnimation();
+        displayManager.update();
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
@@ -279,7 +279,7 @@ void onWebSocketMessage(const String& message) {
         const char* text = doc["text"];
         if (text) {
             Serial.printf("[AI] Response: %s\n", text);
-            displayManager.showMessage(text);
+            displayManager.showText(text);
         }
     }
     else if (strcmp(type, "audio") == 0) {
@@ -287,7 +287,7 @@ void onWebSocketMessage(const String& message) {
         const char* audioData = doc["data"];
         if (audioData) {
             mimiState.setState(MimiState::SPEAKING);
-            displayManager.showFace(DisplayManager::SPEAKING);
+            displayManager.showFace(DisplayManager::TALKING);
             audioManager.playBase64Audio(audioData);
         }
     }
