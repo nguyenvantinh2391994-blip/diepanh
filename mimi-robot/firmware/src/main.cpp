@@ -59,7 +59,7 @@ void setupI2S() {
 // Generate a tone at given frequency
 void playTone(int frequency, int durationMs) {
     int samples = (SAMPLE_RATE * durationMs) / 1000;
-    float amplitude = 10000;  // Volume (0-32767)
+    float amplitude = 30000;  // Volume MAX (0-32767)
 
     Serial.printf("Playing %dHz tone for %dms...\n", frequency, durationMs);
 
