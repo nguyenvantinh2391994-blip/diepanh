@@ -61,13 +61,13 @@ text_to_speech:
   google:
     credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
 
-  # Edge TTS - Backup miễn phí (tự động dùng khi Gemini hết quota)
+  # Edge TTS - Giọng nữ Việt Nam dễ thương
   edge:
     # Microsoft Edge TTS (free)
     # vi-VN-HoaiMyNeural = Giọng nữ Việt Nam
     voice: "vi-VN-HoaiMyNeural"
-    rate: "+10%"      # Nói nhanh hơn một chút - năng động
-    pitch: "+15Hz"    # Cao giọng hơn - nghe trẻ con, dễ thương hơn
+    rate: "+15%"      # Nhanh hơn - năng động, trẻ trung
+    pitch: "+25Hz"    # Cao giọng hơn - nghe như trẻ con, dễ thương
     output_format: "pcm"  # "mp3" or "pcm" - ESP32 needs PCM
 
 # Memory & Personalization
