@@ -6,10 +6,12 @@ Main entry point for the AI dialogue server
 import asyncio
 import json
 import logging
+import base64
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from config_manager import ConfigManager
@@ -89,6 +91,78 @@ async def health():
             "memory_manager": memory_manager.is_ready()
         }
     }
+
+
+@app.post("/api/voice")
+async def voice_endpoint(request: Request):
+    """
+    Simple HTTP endpoint for voice processing.
+    Receives raw PCM audio, returns MP3 audio response.
+    More reliable than WebSocket for single request/response.
+    """
+    try:
+        # Receive raw audio data
+        audio_data = await request.body()
+        logger.info(f"[HTTP] Received {len(audio_data)} bytes of audio")
+
+        if len(audio_data) < 1000:
+            logger.warning("[HTTP] Audio too short, sending test response")
+            # Still send a response for testing
+            test_text = "Mimi không nghe rõ, bạn nói lại nhé!"
+        else:
+            # TEST MODE: Always respond with test message
+            test_text = "Xin chào! Mimi nghe thấy bạn rồi!"
+            logger.info(f"[HTTP] Sending test response: {test_text}")
+
+        # Generate TTS audio
+        tts_audio = await speech_processor.text_to_speech(test_text)
+
+        if tts_audio:
+            logger.info(f"[HTTP] Generated {len(tts_audio)} bytes of PCM audio")
+            # Return raw PCM audio for ESP32
+            return Response(
+                content=tts_audio,
+                media_type="audio/pcm",
+                headers={
+                    "X-Response-Text": base64.b64encode(test_text.encode()).decode(),
+                    "X-Sample-Rate": "16000",
+                    "X-Bits": "16",
+                    "X-Channels": "1"
+                }
+            )
+        else:
+            logger.error("[HTTP] TTS failed")
+            return Response(content=b"", status_code=500)
+
+    except Exception as e:
+        logger.error(f"[HTTP] Error: {e}")
+        return Response(content=str(e).encode(), status_code=500)
+
+
+@app.get("/api/test-speak")
+async def test_speak():
+    """
+    Simple endpoint to test TTS and speaker.
+    Returns a test audio file.
+    """
+    try:
+        test_text = "Xin chào! Mimi hoạt động bình thường!"
+        logger.info(f"[TEST] Generating TTS for: {test_text}")
+
+        tts_audio = await speech_processor.text_to_speech(test_text)
+
+        if tts_audio:
+            logger.info(f"[TEST] Generated {len(tts_audio)} bytes of PCM audio")
+            return Response(
+                content=tts_audio,
+                media_type="audio/pcm"
+            )
+        else:
+            return Response(content=b"TTS failed", status_code=500)
+
+    except Exception as e:
+        logger.error(f"[TEST] Error: {e}")
+        return Response(content=str(e).encode(), status_code=500)
 
 
 @app.websocket("/ws")

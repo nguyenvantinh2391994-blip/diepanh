@@ -148,9 +148,10 @@ class EdgeTTS(TTSProvider):
         self.voice = config.get("voice", "vi-VN-HoaiMyNeural")
         self.rate = config.get("rate", "+0%")
         self.pitch = config.get("pitch", "+0%")
+        self.output_format = config.get("output_format", "pcm")  # "mp3" or "pcm"
 
     async def initialize(self):
-        logger.info(f"Edge TTS initialized with voice: {self.voice}")
+        logger.info(f"Edge TTS initialized with voice: {self.voice}, output: {self.output_format}")
 
     async def synthesize(self, text: str) -> bytes:
         try:
@@ -163,15 +164,50 @@ class EdgeTTS(TTSProvider):
                 pitch=self.pitch
             )
 
-            audio_data = b""
+            mp3_data = b""
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
-                    audio_data += chunk["data"]
+                    mp3_data += chunk["data"]
 
-            return audio_data
+            if not mp3_data:
+                logger.error("Edge TTS returned empty audio")
+                return b""
+
+            # Convert MP3 to raw PCM for ESP32
+            if self.output_format == "pcm":
+                return self._mp3_to_pcm(mp3_data)
+            else:
+                return mp3_data
 
         except Exception as e:
             logger.error(f"Edge TTS error: {e}")
+            return b""
+
+    def _mp3_to_pcm(self, mp3_data: bytes) -> bytes:
+        """Convert MP3 to raw PCM (16kHz, 16-bit, mono)"""
+        try:
+            from pydub import AudioSegment
+
+            # Load MP3 from bytes
+            audio = AudioSegment.from_mp3(io.BytesIO(mp3_data))
+
+            # Convert to 16kHz, mono, 16-bit
+            audio = audio.set_frame_rate(16000)
+            audio = audio.set_channels(1)
+            audio = audio.set_sample_width(2)  # 16-bit = 2 bytes
+
+            # Get raw PCM data
+            pcm_data = audio.raw_data
+
+            logger.info(f"Converted {len(mp3_data)} bytes MP3 to {len(pcm_data)} bytes PCM")
+            return pcm_data
+
+        except ImportError:
+            logger.error("pydub not installed! Install with: pip install pydub")
+            logger.error("Also need ffmpeg: apt install ffmpeg")
+            return b""
+        except Exception as e:
+            logger.error(f"MP3 to PCM conversion error: {e}")
             return b""
 
 

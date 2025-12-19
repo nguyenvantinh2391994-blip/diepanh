@@ -9,6 +9,7 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <ArduinoJson.h>
 
 #include "config.h"
@@ -17,6 +18,9 @@
 #include "audio_manager.h"
 #include "wifi_manager.h"
 #include "websocket_client.h"
+
+// HTTP Voice endpoint URL
+char httpVoiceUrl[128];
 
 // Global objects
 MimiState mimiState;
@@ -34,6 +38,12 @@ const unsigned long LONG_PRESS_MS = 3000;
 TaskHandle_t audioTaskHandle = NULL;
 TaskHandle_t displayTaskHandle = NULL;
 
+// Audio buffer for HTTP mode
+uint8_t* httpAudioBuffer = nullptr;
+size_t httpAudioSize = 0;
+const size_t HTTP_AUDIO_BUFFER_SIZE = 32000 * 5;  // 5 seconds
+bool httpAudioReady = false;
+
 // Function declarations
 void onWebSocketMessage(const String& message);
 void onVoiceData(const uint8_t* data, size_t length);
@@ -41,6 +51,8 @@ void audioTask(void* parameter);
 void displayTask(void* parameter);
 void IRAM_ATTR buttonISR();
 void playStartupSound();
+void sendVoiceViaHTTP();
+void testSpeakerWithHTTP();
 
 void setup() {
     // Disable brownout detector
@@ -55,6 +67,23 @@ void setup() {
     Serial.println("  Version: 0.1.0");
     Serial.println("==========================================");
     Serial.println();
+
+    // Build HTTP voice URL
+    snprintf(httpVoiceUrl, sizeof(httpVoiceUrl), "http://%s:%d/api/voice", SERVER_HOST, SERVER_PORT);
+    Serial.printf("[INIT] HTTP Voice URL: %s\n", httpVoiceUrl);
+
+    // Allocate HTTP audio buffer in PSRAM
+    if (psramFound()) {
+        httpAudioBuffer = (uint8_t*)ps_malloc(HTTP_AUDIO_BUFFER_SIZE);
+        Serial.println("[INIT] Using PSRAM for HTTP audio buffer");
+    } else {
+        httpAudioBuffer = (uint8_t*)malloc(HTTP_AUDIO_BUFFER_SIZE);
+        Serial.println("[INIT] Using RAM for HTTP audio buffer");
+    }
+
+    if (!httpAudioBuffer) {
+        Serial.println("[INIT] HTTP audio buffer allocation failed!");
+    }
 
     // Initialize display first (for visual feedback)
     Serial.println("[INIT] Starting display...");
@@ -170,12 +199,11 @@ void loop() {
             wifiManager.resetCredentials();
             ESP.restart();
         } else {
-            // Short press: activate listening
-            Serial.println("[BUTTON] Short press - activating");
+            // Short press: test speaker with HTTP
+            Serial.println("[BUTTON] Short press - testing speaker via HTTP");
             if (mimiState.isState(MimiState::IDLE)) {
-                mimiState.setState(MimiState::LISTENING);
-                displayManager.showFace(DisplayManager::LISTENING);
-                wsClient.sendAudioStart();
+                displayManager.showStatus("Test loa...");
+                testSpeakerWithHTTP();
             }
         }
     }
@@ -185,32 +213,42 @@ void loop() {
         case MimiState::IDLE:
             // Check for voice activity (wake word detection could go here)
             if (audioManager.isVoiceDetected()) {
+                httpAudioSize = 0;  // Reset audio buffer
+                httpAudioReady = false;
                 mimiState.setState(MimiState::LISTENING);
                 displayManager.showFace(DisplayManager::LISTENING);
-                wsClient.sendAudioStart();
+                Serial.println("[STATE] Voice detected, now LISTENING");
             }
             break;
 
         case MimiState::LISTENING:
-            // Listening animation handled by display task
-            // Wait at least 3 seconds before checking if recording stopped
-            if (!audioManager.isCurrentlyRecording() &&
-                mimiState.getStateTime() > 3000) {
-                // Recording stopped
+            // Wait for recording to finish
+            if (httpAudioReady) {
+                Serial.printf("[STATE] Recording finished with %d bytes\n", httpAudioSize);
                 mimiState.setState(MimiState::THINKING);
                 displayManager.showFace(DisplayManager::THINKING);
-                wsClient.sendAudioEnd();
+                displayManager.showStatus("Dang xu ly...");
+
+                // Send audio via HTTP (blocking call)
+                sendVoiceViaHTTP();
+            }
+            // Timeout after 30 seconds of listening
+            else if (mimiState.getStateTime() > 30000) {
+                Serial.println("[STATE] Listening timeout");
+                mimiState.setState(MimiState::IDLE);
+                displayManager.showFace(DisplayManager::SAD);
+                httpAudioSize = 0;
+                httpAudioReady = false;
             }
             break;
 
         case MimiState::THINKING:
-            // Waiting for server response
-            // Timeout after 30 seconds
-            if (mimiState.getStateTime() > 30000) {
-                Serial.println("[STATE] Thinking timeout");
+            // HTTP processing is synchronous, so we move to SPEAKING immediately
+            // This state is mostly unused now but kept for compatibility
+            if (mimiState.getStateTime() > 100) {
+                // If we're still in THINKING after 100ms, something's wrong
+                // sendVoiceViaHTTP should have changed state to SPEAKING
                 mimiState.setState(MimiState::IDLE);
-                displayManager.showFace(DisplayManager::SAD);
-                delay(2000);
                 displayManager.showFace(DisplayManager::HAPPY);
             }
             break;
@@ -322,11 +360,113 @@ void onWebSocketMessage(const String& message) {
     }
 }
 
-// Voice data callback - sends audio to server
+// Voice data callback - accumulates audio for HTTP sending
 void onVoiceData(const uint8_t* data, size_t length) {
-    if (wsClient.isConnected()) {
-        wsClient.sendBinary(data, length);
+    // Check for end-of-speech signal (0xFFFFFFFF)
+    if (length == 4 && data[0] == 0xFF && data[1] == 0xFF &&
+        data[2] == 0xFF && data[3] == 0xFF) {
+        httpAudioReady = true;
+        Serial.printf("[AUDIO] Recording complete, %d bytes ready for HTTP\n", httpAudioSize);
+        return;
     }
+
+    // Accumulate audio data
+    if (httpAudioBuffer && httpAudioSize + length < HTTP_AUDIO_BUFFER_SIZE) {
+        memcpy(httpAudioBuffer + httpAudioSize, data, length);
+        httpAudioSize += length;
+    }
+}
+
+// Send voice via HTTP and play response
+void sendVoiceViaHTTP() {
+    if (!httpAudioBuffer || httpAudioSize == 0) {
+        Serial.println("[HTTP] No audio data to send");
+        return;
+    }
+
+    Serial.printf("[HTTP] Sending %d bytes of audio to %s\n", httpAudioSize, httpVoiceUrl);
+
+    HTTPClient http;
+    http.begin(httpVoiceUrl);
+    http.addHeader("Content-Type", "application/octet-stream");
+    http.setTimeout(30000);  // 30 second timeout
+
+    int httpCode = http.POST(httpAudioBuffer, httpAudioSize);
+
+    Serial.printf("[HTTP] Response code: %d\n", httpCode);
+
+    if (httpCode == HTTP_CODE_OK) {
+        // Get response audio
+        int len = http.getSize();
+        Serial.printf("[HTTP] Received %d bytes of audio response\n", len);
+
+        if (len > 0) {
+            WiFiClient* stream = http.getStreamPtr();
+
+            // Read audio data into playback buffer
+            uint8_t* responseBuffer = (uint8_t*)ps_malloc(len);
+            if (responseBuffer) {
+                int bytesRead = stream->readBytes(responseBuffer, len);
+                Serial.printf("[HTTP] Read %d bytes into buffer\n", bytesRead);
+
+                if (bytesRead > 0) {
+                    mimiState.setState(MimiState::SPEAKING);
+                    displayManager.showFace(DisplayManager::TALKING);
+                    audioManager.playRawAudio(responseBuffer, bytesRead);
+                }
+
+                free(responseBuffer);
+            } else {
+                Serial.println("[HTTP] Failed to allocate response buffer");
+            }
+        }
+    } else {
+        Serial.printf("[HTTP] Error: %s\n", http.errorToString(httpCode).c_str());
+        mimiState.setState(MimiState::IDLE);
+        displayManager.showFace(DisplayManager::SAD);
+    }
+
+    http.end();
+
+    // Reset audio buffer
+    httpAudioSize = 0;
+    httpAudioReady = false;
+}
+
+// Test speaker by fetching audio from server
+void testSpeakerWithHTTP() {
+    char testUrl[128];
+    snprintf(testUrl, sizeof(testUrl), "http://%s:%d/api/test-speak", SERVER_HOST, SERVER_PORT);
+
+    Serial.printf("[TEST] Fetching test audio from %s\n", testUrl);
+
+    HTTPClient http;
+    http.begin(testUrl);
+    http.setTimeout(30000);
+
+    int httpCode = http.GET();
+
+    if (httpCode == HTTP_CODE_OK) {
+        int len = http.getSize();
+        Serial.printf("[TEST] Received %d bytes of test audio\n", len);
+
+        if (len > 0) {
+            WiFiClient* stream = http.getStreamPtr();
+            uint8_t* audioData = (uint8_t*)ps_malloc(len);
+
+            if (audioData) {
+                stream->readBytes(audioData, len);
+                audioManager.playRawAudio(audioData, len);
+                mimiState.setState(MimiState::SPEAKING);
+                displayManager.showFace(DisplayManager::TALKING);
+                free(audioData);
+            }
+        }
+    } else {
+        Serial.printf("[TEST] Error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
 }
 
 // Play startup melody

@@ -59,6 +59,7 @@ text_to_speech:
     voice: "vi-VN-HoaiMyNeural"
     rate: "+0%"
     pitch: "+0Hz"
+    output_format: "pcm"  # "mp3" or "pcm" - ESP32 needs PCM
 
 # Memory & Personalization
 memory:
