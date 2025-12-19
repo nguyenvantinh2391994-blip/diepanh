@@ -265,8 +265,16 @@ class GeminiTTS(TTSProvider):
             # Get audio data from response
             audio_data = response.candidates[0].content.parts[0].inline_data.data
 
-            # Gemini returns WAV, need to convert to PCM
-            pcm_data = self._wav_to_pcm(audio_data)
+            # Gemini returns audio, try to convert to PCM
+            pcm_data = self._audio_to_pcm(audio_data)
+
+            # If conversion failed, fallback to Edge TTS
+            if not pcm_data or len(pcm_data) == 0:
+                logger.warning("Gemini TTS conversion failed, using Edge TTS fallback")
+                if self.fallback_tts:
+                    return await self.fallback_tts.synthesize(text)
+                return b""
+
             logger.info(f"Gemini TTS: generated {len(pcm_data)} bytes PCM")
             return pcm_data
 
@@ -276,19 +284,36 @@ class GeminiTTS(TTSProvider):
                 return await self.fallback_tts.synthesize(text)
             return b""
 
-    def _wav_to_pcm(self, wav_data: bytes) -> bytes:
-        """Convert WAV to raw PCM (16kHz, 16-bit, mono)"""
+    def _audio_to_pcm(self, audio_data: bytes) -> bytes:
+        """Convert audio (WAV/MP3/raw) to PCM (16kHz, 16-bit, mono)"""
+        from pydub import AudioSegment
+
+        # Try WAV first
         try:
-            from pydub import AudioSegment
+            audio = AudioSegment.from_wav(io.BytesIO(audio_data))
+            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            logger.info("Gemini TTS: converted WAV to PCM")
+            return audio.raw_data
+        except Exception:
+            pass
 
-            audio = AudioSegment.from_wav(io.BytesIO(wav_data))
-            audio = audio.set_frame_rate(16000)
-            audio = audio.set_channels(1)
-            audio = audio.set_sample_width(2)
+        # Try MP3
+        try:
+            audio = AudioSegment.from_mp3(io.BytesIO(audio_data))
+            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            logger.info("Gemini TTS: converted MP3 to PCM")
+            return audio.raw_data
+        except Exception:
+            pass
 
+        # Try raw audio format detection
+        try:
+            audio = AudioSegment.from_file(io.BytesIO(audio_data))
+            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            logger.info("Gemini TTS: converted auto-detected format to PCM")
             return audio.raw_data
         except Exception as e:
-            logger.error(f"WAV to PCM conversion error: {e}")
+            logger.error(f"Audio to PCM conversion failed: {e}")
             return b""
 
 
