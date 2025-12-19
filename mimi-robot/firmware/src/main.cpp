@@ -9,10 +9,10 @@
 #include <driver/i2s.h>
 #include <math.h>
 
-// I2S pins for NS4168 amplifier
-#define I2S_BCLK    5
-#define I2S_LRCLK   4
-#define I2S_DOUT    6   // Speaker output
+// I2S pins for NS4168 amplifier (XH-S3E-AI board - from Keyestudio docs)
+#define I2S_BCLK    15  // Bit Clock
+#define I2S_LRCLK   16  // Left/Right Clock (Word Select)
+#define I2S_DOUT    7   // Data Out to speaker
 
 #define SAMPLE_RATE 16000
 #define BUFFER_SIZE 1024

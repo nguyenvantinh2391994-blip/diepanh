@@ -24,11 +24,11 @@
 #define OLED_WIDTH          128
 #define OLED_HEIGHT         64
 
-// I2S Audio Pins (NS4168 amplifier)
-#define I2S_BCLK_PIN        5
-#define I2S_LRCLK_PIN       4
-#define I2S_DOUT_PIN        6   // Speaker output
-#define I2S_DIN_PIN         7   // Microphone input
+// I2S Audio Pins (NS4168 amplifier) - XH-S3E-AI board from Keyestudio docs
+#define I2S_BCLK_PIN        15  // Bit Clock
+#define I2S_LRCLK_PIN       16  // Left/Right Clock (Word Select)
+#define I2S_DOUT_PIN        7   // Speaker output (Data Out)
+#define I2S_DIN_PIN         8   // Microphone input (to be verified)
 
 // Buttons on XH-S3E-AI board
 #define BUTTON_PIN          0   // IO0 - Hold to connect, press to wake AI
