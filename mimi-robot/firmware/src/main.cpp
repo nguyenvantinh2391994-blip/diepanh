@@ -288,7 +288,17 @@ void loop() {
 
 // Audio task - handles recording and playback
 void audioTask(void* parameter) {
+    Serial.println("[TASK] Audio task started on core " + String(xPortGetCoreID()));
+
     while (true) {
+        // Debug: show task is running every 5 seconds
+        static unsigned long lastTaskDebug = 0;
+        if (millis() - lastTaskDebug > 5000) {
+            Serial.printf("[TASK] audioTask running, state=%d, heap=%d\n",
+                          mimiState.getState(), ESP.getFreeHeap());
+            lastTaskDebug = millis();
+        }
+
         // Always read microphone in IDLE or LISTENING state for VAD
         if (mimiState.isState(MimiState::IDLE) || mimiState.isState(MimiState::LISTENING)) {
             audioManager.update();
