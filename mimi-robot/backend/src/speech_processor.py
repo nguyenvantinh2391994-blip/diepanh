@@ -244,6 +244,7 @@ class GeminiTTS(TTSProvider):
         try:
             from google import genai
             from google.genai import types
+            import base64
 
             client = genai.Client(api_key=self.api_key)
 
@@ -263,24 +264,43 @@ class GeminiTTS(TTSProvider):
             )
 
             # Get audio data from response
-            audio_data = response.candidates[0].content.parts[0].inline_data.data
+            inline_data = response.candidates[0].content.parts[0].inline_data
+            audio_data = inline_data.data
+            mime_type = getattr(inline_data, 'mime_type', 'unknown')
+
+            # Debug: log audio format info
+            first_bytes = audio_data[:20].hex() if audio_data else "empty"
+            logger.info(f"Gemini TTS: received {len(audio_data)} bytes, mime={mime_type}, first bytes: {first_bytes}")
+
+            # Check if data is base64 encoded (starts with printable ASCII)
+            if audio_data and all(32 <= b < 127 for b in audio_data[:100]):
+                try:
+                    logger.info("Gemini TTS: data appears to be base64, decoding...")
+                    audio_data = base64.b64decode(audio_data)
+                    first_bytes = audio_data[:20].hex() if audio_data else "empty"
+                    logger.info(f"Gemini TTS: decoded to {len(audio_data)} bytes, first bytes: {first_bytes}")
+                except Exception as e:
+                    logger.warning(f"Base64 decode failed: {e}")
 
             # Gemini returns audio, try to convert to PCM
             pcm_data = self._audio_to_pcm(audio_data)
 
             # If conversion failed, fallback to Edge TTS
             if not pcm_data or len(pcm_data) == 0:
-                logger.warning("Gemini TTS conversion failed, using Edge TTS fallback")
+                logger.warning("Gemini TTS conversion failed, falling back to Edge TTS")
                 if self.fallback_tts:
+                    logger.info("Using Edge TTS fallback...")
                     return await self.fallback_tts.synthesize(text)
+                logger.error("No fallback TTS available!")
                 return b""
 
             logger.info(f"Gemini TTS: generated {len(pcm_data)} bytes PCM")
             return pcm_data
 
         except Exception as e:
-            logger.error(f"Gemini TTS error: {e}, using fallback")
+            logger.error(f"Gemini TTS error: {e}")
             if self.fallback_tts:
+                logger.info("Using Edge TTS fallback after error...")
                 return await self.fallback_tts.synthesize(text)
             return b""
 

@@ -47,8 +47,8 @@ speech_to_text:
 # Text-to-Speech Configuration
 text_to_speech:
   # Options: "gemini" (có quota), "edge" (miễn phí), "google" (trả phí)
-  # KHUYÊN DÙNG: "gemini" - giọng tự nhiên nhất, có fallback về edge nếu hết quota
-  provider: "gemini"
+  # Tạm dùng edge - Gemini đang có lỗi format audio
+  provider: "edge"
   language: "vi-VN"
   voice: "vi-VN-HoaiMyNeural"  # Female Vietnamese voice
 
