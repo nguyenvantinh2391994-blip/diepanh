@@ -41,7 +41,7 @@ speech_to_text:
     credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
 
   whisper:
-    model: "tiny"  # tiny (nhanh), base, small, medium, large (chậm nhưng chính xác hơn)
+    model: "base"  # base tốt hơn tiny cho tiếng Việt
     device: "cpu"  # cpu or cuda
 
 # Text-to-Speech Configuration
