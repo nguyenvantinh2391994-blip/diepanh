@@ -159,18 +159,32 @@ async def voice_endpoint(request: Request):
         command_text = remove_wake_word(recognized_text)
         logger.info(f"[HTTP] Command after removing wake word: {command_text}")
 
+        # Use a default device_id for HTTP mode (can be improved with device identification)
+        device_id = "default_device"
+
+        # Get user context and conversation history
+        context = await memory_manager.get_user_context(device_id)
+        history = await memory_manager.get_conversation_history(device_id, limit=10)
+
         # If only wake word was said (no command), respond with greeting
         if not command_text or len(command_text) < 2:
-            response_text = "Dạ, Mimi đang nghe đây! Bạn cần gì nào?"
+            if context.get("child_name"):
+                response_text = f"Dạ, {context['child_name']}! Mimi đang nghe đây! Bạn cần gì nào?"
+            else:
+                response_text = "Dạ, Mimi đang nghe đây! Bạn cần gì nào?"
         else:
-            # Get AI response
+            # Get AI response with context
             logger.info("[HTTP] Generating AI response...")
             response_text = await ai_engine.generate_response(
                 user_input=command_text,
-                context={},
-                history=[]
+                context=context,
+                history=history
             )
             logger.info(f"[HTTP] AI Response: {response_text}")
+
+            # Save conversation and extract facts
+            await memory_manager.save_conversation(device_id, command_text, response_text)
+            await memory_manager.extract_and_save_facts(device_id, command_text, response_text)
 
         # Generate TTS audio
         logger.info(f"[HTTP] Generating TTS for: {response_text}")

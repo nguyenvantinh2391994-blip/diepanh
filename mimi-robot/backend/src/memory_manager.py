@@ -173,6 +173,8 @@ class MemoryManager:
         if not self.connection:
             return
 
+        msg_lower = user_message.lower()
+
         # Extract child's name
         name_patterns = [
             r"(?:tên (?:con|em|mình) là|con là|em là|mình là)\s+(\w+)",
@@ -181,7 +183,7 @@ class MemoryManager:
         ]
 
         for pattern in name_patterns:
-            match = re.search(pattern, user_message.lower())
+            match = re.search(pattern, msg_lower)
             if match:
                 name = match.group(1).capitalize()
                 await self._save_user_name(device_id, name)
@@ -189,27 +191,93 @@ class MemoryManager:
 
         # Extract preferences (things the child likes)
         like_patterns = [
-            r"(?:con|em|mình|tôi)\s+thích\s+(.+?)(?:\.|,|$)",
-            r"(?:con|em|mình|tôi)\s+yêu\s+(.+?)(?:\.|,|$)",
-            r"(?:con|em|mình|tôi)\s+mê\s+(.+?)(?:\.|,|$)",
+            r"(?:con|em|mình|tôi)\s+thích\s+(.+?)(?:\.|,|!|$)",
+            r"(?:con|em|mình|tôi)\s+yêu\s+(.+?)(?:\.|,|!|$)",
+            r"(?:con|em|mình|tôi)\s+mê\s+(.+?)(?:\.|,|!|$)",
+            r"(?:con|em|mình|tôi)\s+muốn\s+(.+?)(?:\.|,|!|$)",
         ]
 
         for pattern in like_patterns:
-            matches = re.findall(pattern, user_message.lower())
+            matches = re.findall(pattern, msg_lower)
             for match in matches:
                 await self._save_fact(device_id, "thích", match.strip())
 
-        # Extract other facts
-        fact_patterns = [
-            (r"(?:con|em|mình)\s+(\d+)\s+tuổi", "tuổi"),
-            (r"(?:con|em|mình)\s+học\s+lớp\s+(\d+)", "lớp"),
-            (r"(?:con|em|mình)\s+sống (?:ở|tại)\s+(.+?)(?:\.|,|$)", "nơi ở"),
+        # Extract dislike patterns
+        dislike_patterns = [
+            r"(?:con|em|mình|tôi)\s+(?:không thích|ghét)\s+(.+?)(?:\.|,|!|$)",
         ]
 
-        for pattern, fact_type in fact_patterns:
-            match = re.search(pattern, user_message.lower())
+        for pattern in dislike_patterns:
+            matches = re.findall(pattern, msg_lower)
+            for match in matches:
+                await self._save_fact(device_id, "không thích", match.strip())
+
+        # Extract friend names
+        friend_patterns = [
+            r"bạn\s+(?:con|em|mình)\s+(?:là|tên)\s+(\w+)",
+            r"(\w+)\s+là\s+bạn\s+(?:con|em|mình)",
+            r"(?:con|em|mình)\s+chơi\s+với\s+(\w+)",
+        ]
+
+        for pattern in friend_patterns:
+            match = re.search(pattern, msg_lower)
             if match:
-                await self._save_fact(device_id, fact_type, match.group(1))
+                await self._save_fact(device_id, "bạn bè", match.group(1).capitalize())
+
+        # Extract toy/possession
+        toy_patterns = [
+            r"(?:con|em|mình)\s+có\s+(?:con\s+)?(\w+\s*\w*)",
+            r"đồ chơi\s+(?:của\s+)?(?:con|em|mình)\s+là\s+(.+?)(?:\.|,|$)",
+        ]
+
+        for pattern in toy_patterns:
+            match = re.search(pattern, msg_lower)
+            if match:
+                toy = match.group(1).strip()
+                if len(toy) > 2 and toy not in ["là", "có", "được", "thì"]:
+                    await self._save_fact(device_id, "đồ chơi", toy)
+
+        # Extract school/class info
+        school_patterns = [
+            (r"(?:con|em|mình)\s+học\s+(?:ở\s+)?(?:trường\s+)?(.+?)(?:\.|,|$)", "trường"),
+            (r"(?:con|em|mình)\s+học\s+lớp\s+(\w+)", "lớp"),
+            (r"(?:con|em|mình)\s+(\d+)\s+tuổi", "tuổi"),
+            (r"cô\s+(?:giáo\s+)?(.+?)\s+(?:dạy|là)", "cô giáo"),
+        ]
+
+        for pattern, fact_type in school_patterns:
+            match = re.search(pattern, msg_lower)
+            if match:
+                value = match.group(1).strip()
+                if len(value) > 1:
+                    await self._save_fact(device_id, fact_type, value)
+
+        # Extract activities done today
+        today_patterns = [
+            r"(?:hôm nay|nay)\s+(?:con|em|mình)\s+(?:đã\s+)?(.+?)(?:\.|,|$)",
+        ]
+
+        for pattern in today_patterns:
+            match = re.search(pattern, msg_lower)
+            if match:
+                activity = match.group(1).strip()
+                if len(activity) > 3:
+                    await self._save_fact(device_id, "hoạt động hôm nay", activity)
+
+        # Extract feelings/emotions
+        feeling_patterns = [
+            r"(?:con|em|mình)\s+(?:đang\s+)?(?:thấy\s+)?(.+?)(?:quá|lắm)(?:\.|,|!|$)",
+            r"(?:con|em|mình)\s+(?:rất\s+)?(vui|buồn|sợ|giận|mệt|khỏe)",
+        ]
+
+        for pattern in feeling_patterns:
+            match = re.search(pattern, msg_lower)
+            if match:
+                feeling = match.group(1).strip()
+                if feeling in ["vui", "buồn", "sợ", "giận", "mệt", "khỏe", "hạnh phúc"]:
+                    await self._save_fact(device_id, "cảm xúc gần đây", feeling)
+
+        logger.debug(f"Extracted facts from: {user_message[:50]}...")
 
     async def _save_user_name(self, device_id: str, name: str):
         """Save child's name to profile"""
