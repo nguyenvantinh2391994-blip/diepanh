@@ -53,8 +53,9 @@
 #define AUDIO_BUFFER_SIZE   1024
 
 // Voice Activity Detection
-#define VAD_THRESHOLD       50
-#define VAD_SILENCE_MS      1500  // Silence duration to stop recording
+// Giảm threshold để nhận giọng trẻ em nhỏ (trước là 50)
+#define VAD_THRESHOLD       20
+#define VAD_SILENCE_MS      2000  // Tăng thời gian chờ để trẻ nói chậm
 
 // ===========================================
 // Network Configuration
