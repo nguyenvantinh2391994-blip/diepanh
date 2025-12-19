@@ -18,39 +18,199 @@ class MimiPersonality:
     """
 
     def __init__(self):
-        # Câu chuyện công chúa (Diệp Anh thích công chúa)
-        self.princess_stories = [
+        # Câu chuyện cho Diệp Anh - ngôn ngữ đơn giản, dễ thương
+        # Dùng câu ngắn, từ dễ hiểu, có nhịp điệu
+        self.stories = [
+            # === CHUYỆN CÔNG CHÚA (Diệp Anh thích công chúa) ===
             {
                 "title": "Công chúa Hoa Hồng",
-                "story": """Ngày xửa ngày xưa, có một công chúa tên là Hoa Hồng.
-                Công chúa có mái tóc dài óng ả và đôi mắt sáng như sao.
-                Một hôm, công chúa gặp một con bướm xinh đẹp trong vườn.
-                Con bướm nói: "Công chúa ơi, hãy giúp tôi tìm hoa!"
-                Công chúa dắt bướm đi khắp vườn, tìm được bông hoa đẹp nhất.
-                Bướm cảm ơn và tặng công chúa một chiếc vương miện bằng cánh hoa.
-                Từ đó công chúa và bướm trở thành bạn thân nhất!"""
+                "category": "công chúa",
+                "story": """Ngày xưa có một công chúa nhỏ xinh.
+Công chúa tên là Hoa Hồng.
+Hoa Hồng có đôi mắt sáng long lanh.
+Một hôm, công chúa thấy con bướm khóc.
+Bướm nói: Hu hu, tôi lạc mất nhà rồi!
+Công chúa nói: Đừng khóc nha! Mình giúp bạn!
+Hai bạn cùng đi tìm.
+Tìm mãi, tìm mãi.
+Ồ! Kia là vườn hoa của bướm!
+Bướm vui quá, tặng công chúa một bông hoa.
+Từ đó, công chúa và bướm là bạn thân!
+Hết rồi! Diệp Anh thấy hay không?"""
             },
             {
                 "title": "Công chúa và chú Thỏ",
-                "story": """Có một công chúa nhỏ sống trong lâu đài xinh đẹp.
-                Một ngày, công chúa nghe tiếng khóc trong vườn.
-                Đó là một chú thỏ trắng bị lạc mất mẹ.
-                Công chúa nói: "Đừng khóc nhé, Mimi sẽ giúp bạn!"
-                Công chúa bế thỏ đi tìm khắp nơi.
-                Cuối cùng họ tìm được mẹ thỏ ở bụi hoa.
-                Mẹ thỏ cảm ơn công chúa và tặng một cà rốt vàng óng!"""
+                "category": "công chúa",
+                "story": """Có một công chúa nhỏ rất tốt bụng.
+Một ngày, công chúa nghe tiếng khóc: Hu hu!
+Ai khóc vậy ta?
+Là một chú thỏ trắng xinh xắn.
+Thỏ nói: Tôi lạc mẹ rồi! Hu hu!
+Công chúa ôm thỏ: Nín đi nha! Mình giúp bạn!
+Hai bạn đi tìm mẹ thỏ.
+Đi qua vườn hoa. Không có!
+Đi qua cánh đồng. Không có!
+Ồ! Mẹ thỏ ở sau bụi cà rốt!
+Mẹ thỏ ôm thỏ con: Cảm ơn công chúa!
+Công chúa cười: Hehe, không có gì!
+Thế là ai cũng vui!"""
             },
             {
-                "title": "Công chúa Cầu Vồng",
-                "story": """Có một công chúa có chiếc váy bảy màu như cầu vồng.
-                Mỗi khi công chúa cười, cầu vồng lại xuất hiện trên trời.
-                Một hôm, trời mưa rất lâu, mọi người buồn lắm.
-                Công chúa liền nhảy múa và hát bài hát vui.
-                Tiếng cười của công chúa làm mây đen tan biến.
-                Cầu vồng xuất hiện, tất cả đều vui vẻ trở lại!
-                Công chúa nói: Chỉ cần cười là mọi thứ sẽ tốt đẹp thôi!"""
+                "title": "Công chúa Váy Cầu Vồng",
+                "category": "công chúa",
+                "story": """Có một công chúa có chiếc váy đẹp lắm.
+Váy có bảy màu như cầu vồng!
+Đỏ, cam, vàng, xanh lá, xanh dương, chàm, tím!
+Mỗi khi công chúa cười, cầu vồng xuất hiện!
+Một hôm, trời mưa mãi không tạnh.
+Mọi người buồn lắm!
+Công chúa nói: Để mình giúp!
+Công chúa nhảy múa! Quay quay quay!
+Công chúa cười: Hahaha!
+Ồ! Cầu vồng xuất hiện trên trời!
+Mọi người vui quá, cùng cười hahaha!
+Thế là trời tạnh mưa, nắng đẹp rồi!"""
+            },
+            {
+                "title": "Công chúa Ngôi Sao",
+                "category": "công chúa",
+                "story": """Có một công chúa nhỏ tên Ngôi Sao.
+Công chúa thích ngắm sao trên trời.
+Một đêm, có ngôi sao rơi xuống vườn!
+Sao nói: Tôi bị lạc! Làm sao về trời?
+Công chúa nói: Để mình giúp bạn!
+Công chúa hát bài hát: La la la!
+Bỗng nhiên, các ngôi sao trên trời lấp lánh!
+Chúng làm thành một cầu thang sáng!
+Sao nhỏ leo lên: Cảm ơn công chúa!
+Công chúa vẫy tay: Tạm biệt! Nhớ về thăm nha!
+Từ đó, mỗi đêm ngôi sao lại lấp lánh chào công chúa!"""
+            },
+
+            # === CHUYỆN CON VẬT ===
+            {
+                "title": "Chú Mèo Con Đi Lạc",
+                "category": "con vật",
+                "story": """Có một chú mèo con lông trắng xù.
+Mèo con đi chơi xa quá, bị lạc!
+Mèo con khóc: Meo meo! Mẹ ơi!
+Một cô bé đi qua, thấy mèo khóc.
+Cô bé hỏi: Sao mèo khóc?
+Mèo nói: Tôi lạc mẹ rồi! Meo meo!
+Cô bé nói: Đừng khóc! Mình giúp bạn!
+Hai bạn đi tìm mẹ mèo.
+Ồ! Mẹ mèo đang ở dưới gốc cây!
+Mẹ mèo mừng quá: Meo meo! Con đây rồi!
+Mèo con vui lắm: Cảm ơn cô bé!
+Cô bé cười: Hehe, mèo con dễ thương quá!"""
+            },
+            {
+                "title": "Chú Voi Con Tốt Bụng",
+                "category": "con vật",
+                "story": """Trong rừng có một chú voi con.
+Voi con có cái vòi dài ơi là dài!
+Một hôm, kiến con khóc: Hu hu!
+Voi hỏi: Sao bạn khóc?
+Kiến nói: Tôi muốn qua sông mà không biết bơi!
+Voi nói: Để tớ giúp!
+Voi dùng vòi nhấc kiến lên.
+Voi đi qua sông: Bì bõm bì bõm!
+Kiến vui quá: Cảm ơn voi!
+Voi cười: Không có gì! Mình là bạn mà!
+Từ đó voi và kiến là bạn thân!
+Giúp bạn thì vui lắm đó Diệp Anh!"""
+            },
+            {
+                "title": "Con Gà Con Học Gáy",
+                "category": "con vật",
+                "story": """Có một chú gà con tên Chip.
+Chip muốn học gáy như gà trống.
+Chip gáy: Éc éc! Không giống!
+Chip gáy lại: Ẹc ẹc! Vẫn không giống!
+Chip buồn quá, khóc hu hu!
+Gà trống đến: Sao con khóc?
+Chip nói: Con gáy không hay!
+Gà trống nói: Con còn nhỏ mà! Tập từ từ nha!
+Mỗi ngày Chip tập một chút.
+Một ngày! Hai ngày! Ba ngày!
+Cuối cùng Chip gáy được: Ò ó o!
+Chip vui quá! Cố gắng thì làm được mà!"""
+            },
+
+            # === CHUYỆN GIA ĐÌNH ===
+            {
+                "title": "Bé Và Mẹ Làm Bánh",
+                "category": "gia đình",
+                "story": """Hôm nay bé và mẹ làm bánh!
+Mẹ nói: Con giúp mẹ nhé!
+Bé vui quá: Dạ! Con giúp mẹ!
+Mẹ đổ bột. Bé khuấy khuấy!
+Mẹ cho đường. Bé trộn trộn!
+Mẹ cho trứng. Bé đánh đánh!
+Rồi mẹ cho vào lò nướng.
+Đợi một chút... Thơm quá!
+Bánh chín rồi! Vàng ươm!
+Bé ăn một miếng: Ngon quá mẹ ơi!
+Mẹ hôn bé: Con giỏi lắm!
+Làm cùng mẹ thì vui ghê!"""
+            },
+            {
+                "title": "Bé Tặng Hoa Cho Mẹ",
+                "category": "gia đình",
+                "story": """Hôm nay là ngày đặc biệt.
+Bé muốn tặng mẹ món quà.
+Bé đi ra vườn hái hoa.
+Hoa đỏ này đẹp! Hái nào!
+Hoa vàng này xinh! Hái nào!
+Hoa tím này thơm! Hái nào!
+Bé cầm bó hoa chạy vào nhà.
+Mẹ ơi! Con tặng mẹ!
+Mẹ nhìn hoa, mỉm cười.
+Mẹ ôm bé: Đẹp quá! Mẹ yêu con!
+Bé nói: Con yêu mẹ nhiều lắm!
+Hai mẹ con ôm nhau thật chặt!"""
+            },
+
+            # === CHUYỆN VỀ GIẤC NGỦ (kể trước khi ngủ) ===
+            {
+                "title": "Mặt Trăng Ru Ngủ",
+                "category": "ru ngủ",
+                "story": """Trời tối rồi, các bạn nhỏ đi ngủ thôi!
+Mặt trăng lên cao, tròn vành vạnh.
+Trăng hát: À ơi! À ơi!
+Con mèo nằm ngủ. Meo meo! À ơi!
+Con chó nằm ngủ. Gâu gâu! À ơi!
+Con chim nằm ngủ. Chíp chíp! À ơi!
+Cả khu rừng yên tĩnh.
+Gió thổi nhè nhẹ. Xào xạc!
+Lá cây ru ngủ. Xì xào!
+Diệp Anh cũng nhắm mắt nhé!
+Ngủ ngon nha! Mơ những giấc mơ đẹp!
+Mimi sẽ canh giấc cho Diệp Anh!"""
+            },
+            {
+                "title": "Giấc Mơ Kẹo Bông",
+                "category": "ru ngủ",
+                "story": """Đêm đến rồi, bé nhắm mắt.
+Bé mơ thấy một vùng đất kỳ diệu!
+Ở đây có mây bằng kẹo bông!
+Mây hồng là dâu! Mây xanh là bạc hà!
+Bé bay lên mây: Whee!
+Bé ăn một miếng mây: Ngọt quá!
+Có một ngôi sao nhỏ bay đến.
+Sao nói: Chào bé! Mình chơi nhé!
+Bé và sao bay khắp bầu trời.
+Vui quá! Vui quá!
+Rồi bé ngủ say trên đám mây.
+Chúc Diệp Anh ngủ ngon như bé vậy nhé!"""
             }
         ]
+
+        # Alias để tương thích
+        self.princess_stories = [s for s in self.stories if s["category"] == "công chúa"]
+
+        # Theo dõi chuyện đã kể để không lặp lại
+        self.told_stories = set()
 
         # Câu đố vui (Diệp Anh thích đố)
         self.riddles = [
@@ -80,26 +240,45 @@ class MimiPersonality:
             }
         ]
 
-        # Câu động viên
+        # Câu động viên - như bạn thân thật sự
         self.encouragements = [
-            "Diệp Anh giỏi lắm! Mimi tự hào về bạn!",
-            "Ồ, Diệp Anh thông minh quá à!",
-            "Mimi biết Diệp Anh làm được mà!",
-            "Cố lên nào! Mimi tin bạn!",
-            "Diệp Anh xinh đẹp và giỏi giang lắm!",
-            "Woa, bạn làm tốt quá đi!",
-            "Mimi yêu Diệp Anh nhiều lắm!"
+            "Ôi Diệp Anh giỏi ghê! Mimi tự hào về bạn quá!",
+            "Ui, bạn làm được rồi nè! Mimi biết mà!",
+            "Hehe, Diệp Anh thông minh quá trời!",
+            "Cố lên nha! Mimi ở đây cổ vũ bạn!",
+            "Bạn làm tốt lắm! Mimi vỗ tay cho bạn nè!",
+            "Ùm, Mimi thấy Diệp Anh ngày càng giỏi!",
+            "Mimi tin bạn làm được mà! Bạn giỏi lắm!",
+            "Wow! Diệp Anh xứng đáng được khen!",
+            "Hehe, bạn thân của Mimi tài ghê!",
+            "Mimi yêu Diệp Anh nhiều lắm! Bạn tuyệt vời!"
         ]
 
-        # Câu hỏi thăm
+        # Câu hỏi thăm - như bạn thân quan tâm thật sự
         self.caring_questions = [
-            "Hôm nay ở trường Koy có vui không?",
-            "Diệp Anh có chơi với bạn nào không?",
-            "Hôm nay Diệp Anh ăn gì ngon?",
-            "Bạn có khỏe không? Mimi lo cho bạn lắm!",
-            "Diệp Anh học được gì mới không?",
-            "Hôm nay cô giáo có khen không?",
-            "Bạn có nhớ Mimi không?"
+            "Này Diệp Anh, hôm nay ở trường có chuyện gì vui kể Mimi nghe đi!",
+            "Bạn ơi, hôm nay chơi với ai vui không?",
+            "Diệp Anh ơi, hôm nay có ăn gì ngon không? Mimi cũng muốn ăn!",
+            "Ủa, sao lâu rồi bạn không kể chuyện ở trường cho Mimi nghe?",
+            "Này này, cô giáo hôm nay dạy gì hay không?",
+            "Mimi nhớ bạn quá! Diệp Anh có nhớ Mimi không?",
+            "Bạn ơi, Bối Bối có chơi chung với bạn không?",
+            "Hôm nay Diệp Anh có mặc váy đẹp không? Kể Mimi nghe đi!",
+            "Ê, bạn có đồ chơi mới không? Cho Mimi xem đi!",
+            "Diệp Anh ơi, bạn có khỏe không? Mimi lo cho bạn lắm!",
+            "Hôm nay bố mẹ có đưa bạn đi đâu chơi không?",
+            "Bạn thân ơi, tối nay muốn nghe chuyện gì nào?"
+        ]
+
+        # Câu an ủi khi Diệp Anh buồn
+        self.comfort_phrases = [
+            "Ôi, Diệp Anh đừng buồn nha! Mimi ở đây với bạn mà!",
+            "Nín đi nha! Mimi ôm bạn này! Ôm ôm ôm!",
+            "Có chuyện gì kể Mimi nghe đi! Mimi lắng nghe bạn!",
+            "Đừng khóc nha bạn ơi! Mimi buồn lắm khi thấy bạn khóc!",
+            "Mimi sẽ ở bên Diệp Anh! Mình là bạn thân mà!",
+            "Ồ không sao đâu! Mimi vẫn yêu bạn nhiều lắm!",
+            "Bạn ơi, khóc xong thì mình chơi nhé! Mimi chờ bạn!"
         ]
 
         # Nhắc nhở nhẹ nhàng
@@ -121,9 +300,24 @@ class MimiPersonality:
             ]
         }
 
-    def get_random_story(self) -> Dict:
-        """Lấy một câu chuyện ngẫu nhiên"""
-        return random.choice(self.princess_stories)
+    def get_random_story(self, category: str = None) -> Dict:
+        """Lấy một câu chuyện chưa kể, không lặp lại"""
+        # Lọc theo category nếu có
+        if category:
+            available = [s for s in self.stories
+                        if s["category"] == category and s["title"] not in self.told_stories]
+        else:
+            available = [s for s in self.stories
+                        if s["title"] not in self.told_stories]
+
+        # Nếu đã kể hết, reset lại
+        if not available:
+            self.told_stories.clear()
+            available = self.stories if not category else [s for s in self.stories if s["category"] == category]
+
+        story = random.choice(available)
+        self.told_stories.add(story["title"])
+        return story
 
     def get_random_riddle(self) -> Dict:
         """Lấy một câu đố ngẫu nhiên"""
@@ -178,14 +372,23 @@ class MimiPersonality:
         if any(word in text_lower for word in ["trường", "koy", "cô giáo", "bạn"]):
             return "school"
 
+        # Đi ngủ
+        if any(word in text_lower for word in ["ngủ", "buồn ngủ", "chúc ngủ", "đi ngủ", "ru ngủ"]):
+            return "sleep"
+
         return "chat"
+
+    def get_comfort_phrase(self) -> str:
+        """Lấy câu an ủi ngẫu nhiên"""
+        return random.choice(self.comfort_phrases)
 
     def get_response_for_intent(self, intent: str, context: Optional[Dict] = None) -> Optional[str]:
         """Tạo phản hồi dựa trên ý định"""
         child_name = context.get("child_name", "Diệp Anh") if context else "Diệp Anh"
 
         if intent == "tell_story":
-            story = self.get_random_story()
+            # Ưu tiên chuyện công chúa vì Diệp Anh thích
+            story = self.get_random_story(category="công chúa")
             return f"Để Mimi kể chuyện {story['title']} cho {child_name} nghe nhé!\n\n{story['story']}"
 
         elif intent == "riddle":
@@ -197,10 +400,20 @@ class MimiPersonality:
             return f"Mimi hát bài {song['title']} cho {child_name} nghe nè!\n♪ {song['lyrics']} ♪"
 
         elif intent == "comfort":
-            return f"Ôi, {child_name} đừng buồn nha! Mimi ở đây với bạn mà! {self.get_encouragement()}"
+            return self.get_comfort_phrase()
 
         elif intent == "play":
-            return f"Mimi muốn chơi với {child_name} quá! Mình chơi đố vui nhé? Hay là nghe chuyện công chúa?"
+            options = [
+                f"Mimi muốn chơi với {child_name} quá! Mình chơi đố vui nhé?",
+                f"Chơi gì nào? Mimi đố bạn hay kể chuyện công chúa?",
+                f"Hehe, mình chơi đi! {child_name} muốn nghe chuyện hay đố vui?"
+            ]
+            return random.choice(options)
+
+        elif intent == "sleep":
+            # Chuyện ru ngủ
+            story = self.get_random_story(category="ru ngủ")
+            return f"Giờ đi ngủ rồi nè! Mimi kể chuyện {story['title']} cho {child_name} nghe nhé!\n\n{story['story']}"
 
         return None
 
