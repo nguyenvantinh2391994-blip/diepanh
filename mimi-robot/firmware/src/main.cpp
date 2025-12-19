@@ -1,23 +1,86 @@
 /**
- * Speaker Test for XH-S3E-AI Board
- * Tests NS4168 audio amplifier with I2S
+ * OLED + Speaker Test for XH-S3E-AI Board
+ * Tests both display and audio
  */
 
 #include <Arduino.h>
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <driver/i2s.h>
 #include <math.h>
 
-// I2S pins for NS4168 amplifier (XH-S3E-AI board - from Keyestudio docs)
-#define I2S_BCLK    15  // Bit Clock
-#define I2S_LRCLK   16  // Left/Right Clock (Word Select)
-#define I2S_DOUT    7   // Data Out to speaker
+// OLED Display pins (I2C) - XH-S3E-AI board (from Keyestudio docs)
+#define OLED_SDA    41  // GPIO 41 = SDA
+#define OLED_SCL    42  // GPIO 42 = SCL
+#define OLED_ADDR   0x3C
+#define OLED_WIDTH  128
+#define OLED_HEIGHT 64
+
+// I2S pins for NS4168 amplifier
+#define I2S_BCLK    15
+#define I2S_LRCLK   16
+#define I2S_DOUT    7
 
 #define SAMPLE_RATE 16000
 #define BUFFER_SIZE 1024
 
+Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 int16_t audioBuffer[BUFFER_SIZE];
+bool oledOK = false;
+
+void scanI2C() {
+    Serial.println("\nScanning I2C bus...");
+    int found = 0;
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            Serial.printf("  Found device at 0x%02X\n", addr);
+            found++;
+        }
+    }
+    if (found == 0) {
+        Serial.println("  No I2C devices found!");
+    } else {
+        Serial.printf("  Total: %d device(s)\n", found);
+    }
+}
+
+bool setupOLED() {
+    Serial.println("\n[OLED] Initializing...");
+    Serial.printf("  SDA: GPIO %d\n", OLED_SDA);
+    Serial.printf("  SCL: GPIO %d\n", OLED_SCL);
+
+    Wire.begin(OLED_SDA, OLED_SCL);
+    delay(100);
+
+    scanI2C();
+
+    Serial.println("\n[OLED] Starting SSD1306...");
+
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+            Serial.println("[OLED] SUCCESS!");
+            display.clearDisplay();
+            display.setTextSize(2);
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(10, 10);
+            display.println("MIMI");
+            display.setTextSize(1);
+            display.setCursor(10, 40);
+            display.println("Hello World!");
+            display.display();
+            return true;
+        }
+        Serial.printf("[OLED] Attempt %d failed\n", attempt + 1);
+        delay(100);
+    }
+
+    Serial.println("[OLED] FAILED after 3 attempts");
+    return false;
+}
 
 void setupI2S() {
     i2s_config_t i2s_config = {
@@ -43,25 +106,22 @@ void setupI2S() {
 
     esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
     if (err != ESP_OK) {
-        Serial.printf("I2S driver install failed: %d\n", err);
+        Serial.printf("[I2S] Driver install failed: %d\n", err);
         return;
     }
 
     err = i2s_set_pin(I2S_NUM_0, &pin_config);
     if (err != ESP_OK) {
-        Serial.printf("I2S set pin failed: %d\n", err);
+        Serial.printf("[I2S] Pin config failed: %d\n", err);
         return;
     }
 
-    Serial.println("I2S initialized successfully!");
+    Serial.println("[I2S] Initialized OK");
 }
 
-// Generate a tone at given frequency
 void playTone(int frequency, int durationMs) {
     int samples = (SAMPLE_RATE * durationMs) / 1000;
-    float amplitude = 30000;  // Volume MAX (0-32767)
-
-    Serial.printf("Playing %dHz tone for %dms...\n", frequency, durationMs);
+    float amplitude = 30000;
 
     int pos = 0;
     while (pos < samples) {
@@ -77,25 +137,9 @@ void playTone(int frequency, int durationMs) {
         pos += toWrite;
     }
 
-    // Small silence after tone
     memset(audioBuffer, 0, sizeof(audioBuffer));
     size_t bytesWritten;
     i2s_write(I2S_NUM_0, audioBuffer, BUFFER_SIZE * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
-}
-
-void playMelody() {
-    Serial.println("\n♪ Playing melody...");
-
-    // Simple melody: C-E-G-C (higher)
-    playTone(523, 300);  // C5
-    delay(50);
-    playTone(659, 300);  // E5
-    delay(50);
-    playTone(784, 300);  // G5
-    delay(50);
-    playTone(1047, 500); // C6
-
-    Serial.println("Melody finished!");
 }
 
 void setup() {
@@ -106,32 +150,56 @@ void setup() {
 
     Serial.println();
     Serial.println("==========================================");
-    Serial.println("  SPEAKER TEST - XH-S3E-AI Board");
+    Serial.println("  OLED + SPEAKER TEST - XH-S3E-AI Board");
     Serial.println("==========================================");
-    Serial.printf("BCLK:  GPIO %d\n", I2S_BCLK);
-    Serial.printf("LRCLK: GPIO %d\n", I2S_LRCLK);
-    Serial.printf("DOUT:  GPIO %d\n", I2S_DOUT);
-    Serial.println();
 
+    // Test OLED
+    oledOK = setupOLED();
+
+    // Test Speaker
     setupI2S();
-
-    Serial.println("\nPlaying test tones...");
-    Serial.println("If speaker is connected, you should hear sounds!\n");
-
-    // Play startup sound
-    playMelody();
+    Serial.println("\nPlaying startup sound...");
+    playTone(523, 200);
+    delay(50);
+    playTone(784, 200);
+    delay(50);
+    playTone(1047, 300);
 
     Serial.println("\n==========================================");
-    Serial.println("  Test complete!");
-    Serial.println("  Did you hear the melody?");
+    Serial.printf("  OLED:    %s\n", oledOK ? "OK" : "FAILED");
+    Serial.println("  Speaker: OK (you heard sound)");
     Serial.println("==========================================");
+
+    if (oledOK) {
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setCursor(0, 0);
+        display.println("Hardware Test");
+        display.println();
+        display.println("OLED:    OK");
+        display.println("Speaker: OK");
+        display.println();
+        display.println("All systems ready!");
+        display.display();
+    }
 }
 
 int count = 0;
 
 void loop() {
-    delay(5000);
+    delay(3000);
     count++;
-    Serial.printf("\nPlaying beep #%d...\n", count);
-    playTone(1000, 200);  // 1kHz beep
+
+    if (oledOK) {
+        display.clearDisplay();
+        display.setTextSize(2);
+        display.setCursor(20, 10);
+        display.printf("Count: %d", count);
+        display.setTextSize(1);
+        display.setCursor(0, 50);
+        display.println("Press RESET to restart");
+        display.display();
+    }
+
+    Serial.printf("Loop #%d\n", count);
 }

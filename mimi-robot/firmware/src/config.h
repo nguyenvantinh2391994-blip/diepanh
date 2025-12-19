@@ -17,9 +17,9 @@
 // (Xiaozhi AI ESP32-S3-N16R8)
 // ===========================================
 
-// OLED Display (I2C) - IMPORTANT: Different from generic ESP32-S3!
-#define OLED_SDA_PIN        42  // IO42 on XH-S3E-AI board
-#define OLED_SCL_PIN        41  // IO41 on XH-S3E-AI board
+// OLED Display (I2C) - XH-S3E-AI board (from Keyestudio docs)
+#define OLED_SDA_PIN        41  // GPIO 41 = SDA
+#define OLED_SCL_PIN        42  // GPIO 42 = SCL
 #define OLED_ADDR           0x3C
 #define OLED_WIDTH          128
 #define OLED_HEIGHT         64
