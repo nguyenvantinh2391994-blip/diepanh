@@ -30,7 +30,7 @@
 #define I2S_BCLK_PIN        15  // Bit Clock
 #define I2S_LRCLK_PIN       16  // Left/Right Clock (Word Select)
 #define I2S_DOUT_PIN        7   // Speaker output (Data Out)
-#define I2S_DIN_PIN         4   // Microphone input (INMP441)
+#define I2S_DIN_PIN         6   // Microphone input - thử GPIO 6
 
 // Buttons on XH-S3E-AI board
 #define BUTTON_PIN          0   // IO0 - Hold to connect, press to wake AI
