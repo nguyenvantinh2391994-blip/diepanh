@@ -34,11 +34,14 @@ public:
         };
 
         i2s_pin_config_t pin_config_rx = {
-            .bck_io_num = I2S_BCLK_PIN,
-            .ws_io_num = I2S_LRCLK_PIN,
+            .bck_io_num = MIC_BCLK_PIN,      // Mic uses separate I2S pins
+            .ws_io_num = MIC_WS_PIN,
             .data_out_num = I2S_PIN_NO_CHANGE,
-            .data_in_num = I2S_DIN_PIN
+            .data_in_num = MIC_DATA_PIN
         };
+
+        Serial.printf("[AUDIO] Mic pins: BCLK=%d, WS=%d, DATA=%d\n",
+                      MIC_BCLK_PIN, MIC_WS_PIN, MIC_DATA_PIN);
 
         esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config_rx, 0, NULL);
         if (err != ESP_OK) {
