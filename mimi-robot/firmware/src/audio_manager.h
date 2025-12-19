@@ -163,7 +163,10 @@ public:
                 recordedSize = 0;
                 Serial.println("[AUDIO] Voice detected, starting recording");
             }
+        }
 
+        // While recording, always accumulate and send audio data
+        if (isRecording && bytesRead > 0) {
             // Accumulate audio data
             if (recordedSize + bytesRead < MAX_RECORDING_SIZE) {
                 memcpy(recordingBuffer + recordedSize, audioBuffer, bytesRead);
@@ -171,12 +174,14 @@ public:
             }
 
             // Send chunks to server
-            if (voiceCallback && bytesRead > 0) {
+            if (voiceCallback) {
                 voiceCallback((uint8_t*)audioBuffer, bytesRead);
+                Serial.printf("[AUDIO] Sent %d bytes to server\n", bytesRead);
             }
+        }
 
-        } else if (isRecording) {
-            // Check for silence timeout
+        // Check for silence timeout to stop recording
+        if (isRecording && !voiceDetected) {
             if (millis() - lastVoiceTime > VAD_SILENCE_MS) {
                 isRecording = false;
                 Serial.printf("[AUDIO] Recording stopped, size: %d bytes\n", recordedSize);
