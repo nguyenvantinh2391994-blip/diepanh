@@ -72,11 +72,12 @@ void setup() {
     if (!audioManager.begin()) {
         Serial.println("[INIT] Audio init failed!");
         displayManager.showStatus("Loi audio!");
-        mimiState.setState(MimiState::ERROR);
+        // Don't set error state - continue anyway
     } else {
-        audioManager.setVoiceCallback(onVoiceData);
         playStartupSound();
     }
+    // Always set voice callback regardless of init result
+    audioManager.setVoiceCallback(onVoiceData);
 
     // Initialize button
     pinMode(BUTTON_PIN, INPUT_PULLUP);
