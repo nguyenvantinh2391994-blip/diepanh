@@ -289,7 +289,8 @@ void loop() {
 // Audio task - handles recording and playback
 void audioTask(void* parameter) {
     while (true) {
-        if (mimiState.isState(MimiState::LISTENING)) {
+        // Always read microphone in IDLE or LISTENING state for VAD
+        if (mimiState.isState(MimiState::IDLE) || mimiState.isState(MimiState::LISTENING)) {
             audioManager.update();
         }
 
