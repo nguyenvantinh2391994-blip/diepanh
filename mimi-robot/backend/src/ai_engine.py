@@ -386,6 +386,14 @@ class AIEngine:
         # Remove English words (keep Vietnamese)
         response = re.sub(r'\b[a-zA-Z]{3,}\b', '', response)
 
+        # === SỬA TÊN SAI ===
+        # Sửa tên Mimi
+        response = re.sub(r'\bMim\s*J\b', 'Mimi', response, flags=re.IGNORECASE)
+        response = re.sub(r'\bMim\b', 'Mimi', response, flags=re.IGNORECASE)
+        # Sửa tên Diệp Anh
+        response = re.sub(r'Đinh\s*Diệp\s*Anh', 'Diệp Anh', response)
+        response = re.sub(r'Diệp\s*An\b', 'Diệp Anh', response)
+
         # Clean up extra whitespace/newlines
         response = re.sub(r'\n\s*\n', '\n', response)
         response = re.sub(r'  +', ' ', response)
