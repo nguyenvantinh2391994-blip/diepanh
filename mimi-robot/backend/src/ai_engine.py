@@ -83,6 +83,44 @@ class OpenAIProvider(AIProvider):
         return response.choices[0].message.content
 
 
+class DeepSeekProvider(AIProvider):
+    """
+    DeepSeek AI - Nhanh, rẻ, tương thích OpenAI API
+    Giống như CLG AI dùng (server Trung Quốc)
+    """
+
+    def __init__(self, config: dict):
+        self.api_key = config.get("api_key", "")
+        self.model = config.get("model", "deepseek-chat")
+        self.temperature = config.get("temperature", 0.7)
+        self.max_tokens = config.get("max_tokens", 1000)
+        self.client = None
+
+    async def initialize(self):
+        if self.api_key:
+            from openai import AsyncOpenAI
+            self.client = AsyncOpenAI(
+                api_key=self.api_key,
+                base_url="https://api.deepseek.com/v1"
+            )
+            logger.info("DeepSeek client initialized - Nhanh như CLG AI!")
+
+    async def generate(self, messages: List[Dict], system_prompt: str) -> str:
+        if not self.client:
+            raise RuntimeError("DeepSeek client not initialized. Cần API key!")
+
+        full_messages = [{"role": "system", "content": system_prompt}] + messages
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=full_messages,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens
+        )
+
+        return response.choices[0].message.content
+
+
 class OllamaProvider(AIProvider):
     """
     Ollama - Chạy AI hoàn toàn LOCAL, MIỄN PHÍ
@@ -188,6 +226,9 @@ class AIEngine:
             self.provider = AnthropicProvider(ai_config)
         elif provider_name == "openai":
             self.provider = OpenAIProvider(ai_config)
+        elif provider_name == "deepseek":
+            self.provider = DeepSeekProvider(ai_config.get("deepseek", {}))
+            logger.info("Using DeepSeek (FAST, CHEAP - giống CLG AI!)")
         else:
             raise ValueError(f"Unknown AI provider: {provider_name}")
 

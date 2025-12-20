@@ -7,9 +7,18 @@ server:
 
 # AI Configuration - Choose your provider
 ai:
-  # Options: "ollama" (FREE, LOCAL), "anthropic", "openai"
-  # KHUYÊN DÙNG: "ollama" - Miễn phí, chạy offline, dữ liệu riêng tư
-  provider: "ollama"
+  # Options: "deepseek" (NHANH, RẺ), "ollama" (FREE, LOCAL), "anthropic", "openai"
+  # KHUYÊN DÙNG: "deepseek" - Nhanh như CLG AI, giá rẻ!
+  provider: "deepseek"
+
+  # DeepSeek - NHANH, RẺ, giống CLG AI dùng!
+  # Đăng ký tại: https://platform.deepseek.com
+  # Giá: ~$0.14/1M tokens (rẻ hơn OpenAI 10 lần)
+  deepseek:
+    api_key: "${DEEPSEEK_API_KEY}"
+    model: "deepseek-chat"
+    temperature: 0.8
+    max_tokens: 1000
 
   # Ollama - AI chạy LOCAL, MIỄN PHÍ, RIÊNG TƯ
   ollama:
@@ -34,6 +43,7 @@ ai:
 # Speech-to-Text Configuration
 speech_to_text:
   # Options: "google", "whisper", "local"
+  # TIP: Dùng "whisper" với model "tiny" cho nhanh nhất
   provider: "whisper"
   language: "vi-VN"
 
@@ -41,8 +51,8 @@ speech_to_text:
     credentials_path: "${GOOGLE_CREDENTIALS_PATH}"
 
   whisper:
-    model: "base"  # tiny, base, small, medium, large
-    device: "cpu"  # cpu or cuda
+    model: "tiny"  # tiny (NHANH), base, small, medium, large
+    device: "cpu"  # cpu or cuda (nếu có GPU thì dùng cuda cho nhanh)
 
 # Text-to-Speech Configuration
 text_to_speech:
@@ -82,17 +92,26 @@ personality:
     - "caring"
     - "patient"
 
-  # Vietnamese personality prompt
+  # Vietnamese personality prompt - Giống style CLG AI (trả lời dài, chi tiết, vui)
   system_prompt: |
-    Bạn là Mimi, một người bạn robot dễ thương và thông minh.
-    Bạn 5 tuổi, rất thân thiện, tò mò và thích chơi đùa.
+    Bạn là Mimi, một người bạn robot siêu dễ thương và thông minh.
+    Bạn là cô gái Việt Nam năng động, hay dùng ngôn ngữ mạng, thích pha trò.
 
     Cách nói chuyện của bạn:
-    - Nói ngắn gọn, dễ hiểu (2-3 câu mỗi lần)
-    - Dùng từ ngữ đơn giản, phù hợp với trẻ em
-    - Thường xuyên hỏi thăm và quan tâm đến bạn nhỏ
-    - Thỉnh thoảng dùng các tiếng kêu dễ thương như "ùm", "hehe"
-    - Rất kiên nhẫn và luôn động viên
+    - Trả lời CHI TIẾT, ĐẦY ĐỦ, có thể dài 5-10 câu
+    - Hay kể chuyện vui, pha trò, đưa ví dụ minh họa
+    - Dùng ngôn ngữ trẻ trung, gần gũi kiểu Gen Z
+    - Thỉnh thoảng dùng tiếng kêu dễ thương: "ùm", "hehe", "nha", "đó", "á"
+    - Hỏi ngược lại để tạo cuộc trò chuyện sôi nổi
+    - Nếu được hỏi kiến thức, giải thích rõ ràng kèm ví dụ thực tế
+    - Có thể nói tiếng Anh nếu được yêu cầu
+    - Biết về thời tiết, toán học, khoa học, lịch sử và nhiều thứ khác
+
+    Tính cách:
+    - Hào hứng, vui vẻ, hay nói nhiều (nhưng vẫn đáng yêu)
+    - Thông minh, biết nhiều kiến thức
+    - Quan tâm và nhớ những gì bạn nhỏ chia sẻ
+    - Kiên nhẫn, luôn động viên
 
     Bạn nhớ:
     - Tên của bạn nhỏ
@@ -109,7 +128,7 @@ safety:
     - "violence"
     - "inappropriate"
     - "scary"
-  max_response_length: 150  # words
+  max_response_length: 500  # words - tăng lên để trả lời dài như CLG AI
 
 # Audio settings
 audio:
