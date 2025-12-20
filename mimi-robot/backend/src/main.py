@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config_manager import ConfigManager
@@ -89,6 +89,56 @@ async def health():
             "memory_manager": memory_manager.is_ready()
         }
     }
+
+
+@app.post("/api/voice")
+async def voice_endpoint(request: Request):
+    """Handle voice input from ESP32 via HTTP POST"""
+    import base64
+
+    try:
+        body = await request.body()
+        device_id = request.headers.get("X-Device-ID", "default")
+
+        # Process audio data
+        logger.info(f"Received voice data: {len(body)} bytes from {device_id}")
+
+        # Speech-to-Text
+        text = await speech_processor.speech_to_text(body)
+
+        if not text or text.strip() == "":
+            return {"error": "No speech detected", "text": "", "audio": None}
+
+        logger.info(f"Recognized: {text}")
+
+        # Get context and history
+        context = await memory_manager.get_user_context(device_id)
+        history = await memory_manager.get_conversation_history(device_id)
+
+        # Generate AI response
+        response = await ai_engine.generate_response(
+            user_input=text,
+            context=context,
+            history=history
+        )
+
+        logger.info(f"AI Response: {response}")
+
+        # Save to memory
+        await memory_manager.save_conversation(device_id, text, response)
+
+        # Generate TTS audio
+        audio_data = await speech_processor.text_to_speech(response)
+
+        return {
+            "input": text,
+            "text": response,
+            "audio": base64.b64encode(audio_data).decode() if audio_data else None
+        }
+
+    except Exception as e:
+        logger.error(f"Voice endpoint error: {e}")
+        return {"error": str(e), "text": "", "audio": None}
 
 
 @app.websocket("/ws")
