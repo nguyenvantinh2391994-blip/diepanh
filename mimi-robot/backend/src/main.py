@@ -19,6 +19,7 @@ import os
 import sys
 import signal
 import atexit
+import time
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -251,6 +252,43 @@ WAKE_WORDS = [
 ]
 
 
+# Conversation Session Manager
+# Quản lý phiên trò chuyện - sau khi gọi "Mimi", tiếp tục lắng nghe trong 60 giây
+class ConversationSession:
+    """Quản lý phiên trò chuyện với timeout"""
+
+    def __init__(self, timeout_seconds: int = 60):
+        self.timeout = timeout_seconds
+        self.sessions = {}  # device_id -> last_activity_time
+
+    def start_session(self, device_id: str):
+        """Bắt đầu hoặc gia hạn phiên trò chuyện"""
+        self.sessions[device_id] = time.time()
+        logger.info(f"[Session] Started/renewed for {device_id}, timeout in {self.timeout}s")
+
+    def is_active(self, device_id: str) -> bool:
+        """Kiểm tra phiên còn hoạt động không"""
+        if device_id not in self.sessions:
+            return False
+
+        elapsed = time.time() - self.sessions[device_id]
+        if elapsed < self.timeout:
+            return True
+        else:
+            # Session expired
+            del self.sessions[device_id]
+            logger.info(f"[Session] Expired for {device_id}")
+            return False
+
+    def extend_session(self, device_id: str):
+        """Gia hạn phiên khi có hoạt động"""
+        if device_id in self.sessions:
+            self.sessions[device_id] = time.time()
+
+# Global session manager (60 giây timeout)
+conversation_session = ConversationSession(timeout_seconds=60)
+
+
 def contains_wake_word(text: str) -> bool:
     """Check if text contains a wake word"""
     text_lower = text.lower().strip()
@@ -278,8 +316,14 @@ async def voice_endpoint(request: Request):
     """
     HTTP endpoint for voice processing.
     Receives raw PCM audio, returns PCM audio response.
-    Only responds if wake word "Mimi" is detected.
+
+    Logic:
+    1. Nếu có wake word "Mimi" → bắt đầu session 60 giây, trả lời
+    2. Nếu đang trong session (60 giây) → trả lời mà không cần wake word
+    3. Nếu hết session và không có wake word → bỏ qua
     """
+    device_id = "default_device"
+
     try:
         audio_data = await request.body()
         logger.info(f"[HTTP] Received {len(audio_data)} bytes of audio")
@@ -298,22 +342,33 @@ async def voice_endpoint(request: Request):
 
         logger.info(f"[HTTP] Recognized: {recognized_text}")
 
-        # TẠM THỜI: Bỏ qua wake word để test
-        # Check for wake word
-        # if not contains_wake_word(recognized_text):
-        #     logger.info("[HTTP] No wake word detected, ignoring")
-        #     return Response(content=b"", status_code=204)
+        # === WAKE WORD + SESSION LOGIC ===
+        has_wake_word = contains_wake_word(recognized_text)
+        session_active = conversation_session.is_active(device_id)
 
-        logger.info("[HTTP] Processing audio (wake word disabled for testing)...")
+        if has_wake_word:
+            # Wake word detected → start/renew session
+            conversation_session.start_session(device_id)
+            command_text = remove_wake_word(recognized_text)
+            logger.info(f"[HTTP] Wake word detected! Session started. Command: {command_text}")
 
-        command_text = remove_wake_word(recognized_text)
-        logger.info(f"[HTTP] Command: {command_text}")
+        elif session_active:
+            # No wake word but session is active → process anyway
+            command_text = recognized_text
+            conversation_session.extend_session(device_id)
+            logger.info(f"[HTTP] Session active, processing: {command_text}")
 
-        device_id = "default_device"
+        else:
+            # No wake word and no active session → ignore
+            logger.info("[HTTP] No wake word and no active session, ignoring")
+            return Response(content=b"", status_code=204)
+
+        # === GENERATE RESPONSE ===
         context = await memory_manager.get_user_context(device_id)
         history = await memory_manager.get_conversation_history(device_id, limit=10)
 
         if not command_text or len(command_text) < 2:
+            # Chỉ gọi tên, chưa nói gì
             if context.get("child_name"):
                 response_text = f"Dạ, Mimi đây! Sao đó {context['child_name']}?"
             else:
@@ -337,6 +392,9 @@ async def voice_endpoint(request: Request):
                     learned_facts=None,
                     emotion=None
                 )
+
+        # Extend session after successful response
+        conversation_session.extend_session(device_id)
 
         # Generate TTS audio
         logger.info(f"[HTTP] Generating TTS for: {response_text}")
