@@ -141,7 +141,7 @@ class OllamaProvider(AIProvider):
             "stream": False,
             "options": {
                 "temperature": self.temperature,
-                "num_predict": 100  # Giới hạn ~100 tokens để response ngắn và nhanh
+                "num_predict": 50  # Giới hạn ~50 tokens = 2-3 câu ngắn
             }
         }
 
@@ -375,25 +375,37 @@ class AIEngine:
         if not safety_config.get("enabled", True):
             return response
 
-        # Remove Chinese characters (Unicode range)
-        # Chinese: \u4e00-\u9fff, Japanese Hiragana/Katakana: \u3040-\u30ff
         import re
-        original_len = len(response)
-        response = re.sub(r'[\u4e00-\u9fff\u3040-\u30ff]+', '', response)
 
-        # Clean up extra whitespace/newlines from removed text
+        # Remove Chinese/Japanese/Korean characters
+        original_len = len(response)
+        response = re.sub(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+', '', response)
+
+        # Remove English words (keep Vietnamese)
+        response = re.sub(r'\b[a-zA-Z]{3,}\b', '', response)
+
+        # Clean up extra whitespace/newlines
         response = re.sub(r'\n\s*\n', '\n', response)
         response = re.sub(r'  +', ' ', response)
         response = response.strip()
 
         if len(response) < original_len:
-            logger.warning(f"Removed non-Vietnamese characters: {original_len} -> {len(response)} chars")
+            logger.warning(f"Removed non-Vietnamese: {original_len} -> {len(response)} chars")
 
-        # Check max length
-        max_length = safety_config.get("max_response_length", 150)
+        # === GIỚI HẠN TỐI ĐA 3 CÂU ===
+        # Tách câu bằng dấu . ! ? và giới hạn
+        sentences = re.split(r'(?<=[.!?])\s+', response)
+        if len(sentences) > 3:
+            response = ' '.join(sentences[:3])
+            if not response.endswith(('.', '!', '?')):
+                response += '!'
+            logger.info(f"Truncated to 3 sentences: {len(sentences)} -> 3")
+
+        # Fallback: giới hạn theo từ nếu vẫn còn dài
+        max_words = safety_config.get("max_response_length", 40)
         words = response.split()
-        if len(words) > max_length:
-            response = " ".join(words[:max_length]) + "..."
+        if len(words) > max_words:
+            response = " ".join(words[:max_words]) + "..."
 
         return response
 
