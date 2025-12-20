@@ -48,17 +48,29 @@ class WhisperSTT(STTProvider):
 
     async def transcribe(self, audio_data: bytes) -> str:
         if not self.model:
+            logger.warning("Whisper model not loaded")
             return ""
 
         import tempfile
-        import numpy as np
-        from scipy.io import wavfile
+        import struct
 
         try:
+            logger.info(f"Processing audio: {len(audio_data)} bytes")
+
+            # Check if it's already a WAV file (starts with "RIFF")
+            if audio_data[:4] == b'RIFF':
+                wav_data = audio_data
+                logger.info("Audio is WAV format")
+            else:
+                # Raw PCM - convert to WAV
+                logger.info("Audio is raw PCM, converting to WAV")
+                wav_data = self._pcm_to_wav(audio_data, sample_rate=16000, channels=1, bits=16)
+
             # Save audio to temp file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                f.write(audio_data)
+                f.write(wav_data)
                 temp_path = f.name
+                logger.info(f"Saved temp file: {temp_path}")
 
             # Transcribe
             result = self.model.transcribe(
@@ -70,11 +82,50 @@ class WhisperSTT(STTProvider):
             import os
             os.unlink(temp_path)
 
-            return result.get("text", "").strip()
+            text = result.get("text", "").strip()
+            logger.info(f"Transcribed: '{text}'")
+            return text
 
         except Exception as e:
             logger.error(f"Whisper transcription error: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
+
+    def _pcm_to_wav(self, pcm_data: bytes, sample_rate: int = 16000, channels: int = 1, bits: int = 16) -> bytes:
+        """Convert raw PCM to WAV format"""
+        import struct
+        import io
+
+        # WAV header
+        byte_rate = sample_rate * channels * bits // 8
+        block_align = channels * bits // 8
+        data_size = len(pcm_data)
+        file_size = 36 + data_size
+
+        wav = io.BytesIO()
+
+        # RIFF header
+        wav.write(b'RIFF')
+        wav.write(struct.pack('<I', file_size))
+        wav.write(b'WAVE')
+
+        # fmt chunk
+        wav.write(b'fmt ')
+        wav.write(struct.pack('<I', 16))  # chunk size
+        wav.write(struct.pack('<H', 1))   # audio format (PCM)
+        wav.write(struct.pack('<H', channels))
+        wav.write(struct.pack('<I', sample_rate))
+        wav.write(struct.pack('<I', byte_rate))
+        wav.write(struct.pack('<H', block_align))
+        wav.write(struct.pack('<H', bits))
+
+        # data chunk
+        wav.write(b'data')
+        wav.write(struct.pack('<I', data_size))
+        wav.write(pcm_data)
+
+        return wav.getvalue()
 
 
 class GoogleSTT(STTProvider):
