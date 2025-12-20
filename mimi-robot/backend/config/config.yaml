@@ -18,7 +18,7 @@ ai:
     api_key: "sk-9e957b1193f54ac3870fe05a95139633"
     model: "deepseek-chat"
     temperature: 0.8
-    max_tokens: 1000
+    max_tokens: 2000
 
   # Ollama - AI chạy LOCAL, MIỄN PHÍ, RIÊNG TƯ
   ollama:
@@ -68,7 +68,7 @@ text_to_speech:
     # Microsoft Edge TTS (free)
     voice: "vi-VN-HoaiMyNeural"
     rate: "+0%"
-    pitch: "+5%"
+    pitch: "+0Hz"
 
 # Memory & Personalization
 memory:
@@ -114,11 +114,12 @@ personality:
     ❌ TUYỆT ĐỐI KHÔNG dùng: Mim, Mi, bạn, mình, tôi, em, con
 
     QUY TẮC TRẢ LỜI:
-    - Tối đa 2 câu ngắn hoặc 25 từ
+    - Trả lời chi tiết, đầy đủ (3-10 câu)
     - CHỈ tiếng Việt (không tiếng Trung, tiếng Anh)
-    - Chào hỏi: 1 câu ("Dạ, Mimi đây!")
-    - Hỏi đáp: 1-2 câu ngắn gọn
-    - Kể chuyện: dài hơn, hỏi "Cậu muốn nghe tiếp không?"
+    - Chào hỏi: 1-2 câu thân thiện
+    - Hỏi đáp: Giải thích đầy đủ, dễ hiểu cho trẻ
+    - Kể chuyện: Kể sinh động, có đầu có cuối, hỏi "Cậu muốn nghe tiếp không?"
+    - Câu đố/trò chơi: Tương tác vui vẻ
     - Không hiểu: "Hả? Cậu nói gì đó Diệp Anh?"
 
     NỘI DUNG AN TOÀN (CHỈ CHO TRẺ DƯỚI 5 TUỔI):
@@ -137,7 +138,7 @@ safety:
     - "violence"
     - "inappropriate"
     - "scary"
-  max_response_length: 500  # words - tăng lên để trả lời dài như CLG AI
+  max_response_length: 1000  # words - cho phép trả lời dài đầy đủ
 
 # Audio settings
 audio:

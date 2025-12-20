@@ -227,7 +227,8 @@ class AIEngine:
         elif provider_name == "openai":
             self.provider = OpenAIProvider(ai_config)
         elif provider_name == "deepseek":
-            self.provider = DeepSeekProvider(ai_config.get("deepseek", {}))
+            # ai_config đã chứa thông tin deepseek trực tiếp từ config_manager
+            self.provider = DeepSeekProvider(ai_config)
             logger.info("Using DeepSeek (FAST, CHEAP - giống CLG AI!)")
         else:
             raise ValueError(f"Unknown AI provider: {provider_name}")
