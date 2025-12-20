@@ -141,7 +141,7 @@ class OllamaProvider(AIProvider):
             "stream": False,
             "options": {
                 "temperature": self.temperature,
-                "num_predict": 50  # Giới hạn ~50 tokens = 2-3 câu ngắn
+                "num_predict": 30  # Giới hạn ~30 tokens = 1-2 câu ngắn
             }
         }
 
@@ -370,6 +370,8 @@ class AIEngine:
 
     def _apply_safety_filter(self, response: str) -> str:
         """Apply child-safe content filtering"""
+        logger.info(f"[Filter] Input: {response[:100]}...")
+
         safety_config = self.config.get_section("safety")
 
         if not safety_config.get("enabled", True):
@@ -392,21 +394,24 @@ class AIEngine:
         if len(response) < original_len:
             logger.warning(f"Removed non-Vietnamese: {original_len} -> {len(response)} chars")
 
-        # === GIỚI HẠN TỐI ĐA 3 CÂU ===
+        # === GIỚI HẠN TỐI ĐA 2 CÂU ===
         # Tách câu bằng dấu . ! ? và giới hạn
         sentences = re.split(r'(?<=[.!?])\s+', response)
-        if len(sentences) > 3:
-            response = ' '.join(sentences[:3])
+        logger.info(f"[Filter] Sentences: {len(sentences)}")
+        if len(sentences) > 2:
+            response = ' '.join(sentences[:2])
             if not response.endswith(('.', '!', '?')):
                 response += '!'
-            logger.info(f"Truncated to 3 sentences: {len(sentences)} -> 3")
+            logger.info(f"[Filter] Truncated: {len(sentences)} -> 2 sentences")
 
         # Fallback: giới hạn theo từ nếu vẫn còn dài
-        max_words = safety_config.get("max_response_length", 40)
+        max_words = safety_config.get("max_response_length", 25)
         words = response.split()
         if len(words) > max_words:
             response = " ".join(words[:max_words]) + "..."
+            logger.info(f"[Filter] Word limit: {len(words)} -> {max_words}")
 
+        logger.info(f"[Filter] Output: {response}")
         return response
 
     async def detect_emotion(self, text: str) -> str:

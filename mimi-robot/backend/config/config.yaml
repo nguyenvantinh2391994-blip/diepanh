@@ -205,7 +205,7 @@ safety:
     - "money"
     - "politics"
     - "romance"
-  max_response_length: 40  # words - tối đa 2-3 câu ngắn
+  max_response_length: 25  # words - tối đa 1-2 câu ngắn
 
 # Audio settings
 audio:
