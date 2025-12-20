@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import aiohttp
 import aiosqlite
 import yaml
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -105,31 +105,53 @@ class MemoryManager:
         return row[0] if row else None
 
 # ============================================================
-# AI ENGINE (Ollama)
+# AI ENGINE (DeepSeek / Ollama)
 # ============================================================
 
 class AIEngine:
     def __init__(self, config: dict):
-        ollama_config = config.get("ai", {}).get("ollama", {})
-        self.host = ollama_config.get("host", "http://localhost:11434")
-        self.model = ollama_config.get("model", "qwen2.5:7b")
-        self.temperature = ollama_config.get("temperature", 0.7)
+        ai_config = config.get("ai", {})
+        self.provider = ai_config.get("provider", "ollama")
         self.system_prompt = config.get("personality", {}).get("system_prompt", "Bạn là Mimi.")
         self.session = None
+        self.client = None
+
+        if self.provider == "deepseek":
+            deepseek_config = ai_config.get("deepseek", {})
+            self.api_key = deepseek_config.get("api_key", "")
+            self.model = deepseek_config.get("model", "deepseek-chat")
+            self.temperature = deepseek_config.get("temperature", 0.8)
+            self.max_tokens = deepseek_config.get("max_tokens", 1000)
+        else:
+            ollama_config = ai_config.get("ollama", {})
+            self.host = ollama_config.get("host", "http://localhost:11434")
+            self.model = ollama_config.get("model", "qwen2.5:7b")
+            self.temperature = ollama_config.get("temperature", 0.7)
 
     async def init(self):
-        self.session = aiohttp.ClientSession()
-        try:
-            async with self.session.get(f"{self.host}/api/tags") as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    models = [m["name"] for m in data.get("models", [])]
-                    print(f"✅ Ollama connected! Models: {models}")
-                else:
-                    print("❌ Ollama not responding")
-        except Exception as e:
-            print(f"❌ Cannot connect to Ollama: {e}")
-            print("   Make sure Ollama is running!")
+        if self.provider == "deepseek":
+            try:
+                from openai import AsyncOpenAI
+                self.client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url="https://api.deepseek.com/v1"
+                )
+                print(f"✅ DeepSeek connected! Model: {self.model}")
+                print("   🚀 Nhanh như CLG AI!")
+            except Exception as e:
+                print(f"❌ DeepSeek error: {e}")
+        else:
+            self.session = aiohttp.ClientSession()
+            try:
+                async with self.session.get(f"{self.host}/api/tags") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        models = [m["name"] for m in data.get("models", [])]
+                        print(f"✅ Ollama connected! Models: {models}")
+                    else:
+                        print("❌ Ollama not responding")
+            except Exception as e:
+                print(f"❌ Cannot connect to Ollama: {e}")
 
     async def chat(self, message: str, history: list = None, child_name: str = None):
         # Build system prompt with child name
@@ -137,18 +159,38 @@ class AIEngine:
         if child_name:
             system += f"\n\nBạn đang nói chuyện với bé {child_name}."
 
-        messages = [{"role": "system", "content": system}]
+        messages = []
         if history:
             messages.extend(history[-10:])  # Last 10 messages
         messages.append({"role": "user", "content": message})
 
+        if self.provider == "deepseek":
+            return await self._chat_deepseek(messages, system)
+        else:
+            return await self._chat_ollama(messages, system)
+
+    async def _chat_deepseek(self, messages: list, system: str):
+        try:
+            full_messages = [{"role": "system", "content": system}] + messages
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=full_messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"❌ DeepSeek Error: {e}")
+            return "Mimi đang gặp trục trặc, thử lại nhé!"
+
+    async def _chat_ollama(self, messages: list, system: str):
+        full_messages = [{"role": "system", "content": system}] + messages
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": full_messages,
             "stream": False,
             "options": {"temperature": self.temperature}
         }
-
         try:
             async with self.session.post(f"{self.host}/api/chat", json=payload) as resp:
                 if resp.status == 200:
@@ -157,7 +199,7 @@ class AIEngine:
                 else:
                     return "Mimi đang gặp trục trặc, thử lại nhé!"
         except Exception as e:
-            print(f"❌ AI Error: {e}")
+            print(f"❌ Ollama Error: {e}")
             return "Mimi không thể suy nghĩ được!"
 
     async def close(self):
@@ -302,6 +344,49 @@ async def chat_endpoint(data: dict):
     await memory.save_message(device_id, "assistant", response)
 
     return {"response": response}
+
+
+# Voice endpoint for ESP32 (HTTP fallback)
+@app.post("/api/voice")
+async def voice_endpoint(request: Request):
+    """Handle voice input from ESP32 via HTTP POST"""
+    import base64
+
+    try:
+        body = await request.body()
+        device_id = request.headers.get("X-Device-ID", "default")
+
+        # If body is JSON
+        try:
+            data = json.loads(body)
+            audio_b64 = data.get("audio", "")
+            audio_data = base64.b64decode(audio_b64) if audio_b64 else body
+        except:
+            audio_data = body
+
+        # TODO: Implement Speech-to-Text here
+        # For now, return a test response
+        text = "Xin chào!"  # Placeholder
+
+        # Get AI response
+        history = await memory.get_history(device_id)
+        child_name = await memory.get_child_name(device_id)
+        response = await ai.chat(text, history, child_name)
+
+        # Save to memory
+        await memory.save_message(device_id, "user", text)
+        await memory.save_message(device_id, "assistant", response)
+
+        # Generate TTS
+        audio = await text_to_speech(response)
+
+        return {
+            "text": response,
+            "audio": base64.b64encode(audio).decode() if audio else None
+        }
+    except Exception as e:
+        print(f"❌ Voice endpoint error: {e}")
+        return {"error": str(e)}
 
 # ============================================================
 # MAIN
