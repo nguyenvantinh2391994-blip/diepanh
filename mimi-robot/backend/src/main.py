@@ -234,7 +234,7 @@ async def health():
     }
 
 
-# Wake words to detect - nhiều variations vì Whisper tiny không chính xác
+# Wake words to detect - nhiều variations vì Whisper không chính xác
 WAKE_WORDS = [
     # Chuẩn
     "mimi", "mi mi", "mí mi", "mi-mi", "mimi ơi", "mimi oi",
@@ -246,9 +246,14 @@ WAKE_WORDS = [
     "ê mimi", "hey mimi", "hê mimi",
     "alo", "a lô",
     # Từ log thực tế - Whisper nghe thành:
-    "mì no", "mi no", "mino",  # "Mimi" -> "Mì no"
-    "mình mi", "minh mi",  # "Mimi" -> "Mình mi"
-    "mình", "minh",  # Đơn giản
+    "mì no", "mi no", "mino",
+    "mình mi", "minh mi",
+    "mình", "minh",
+    # Whisper English mode nghe thành:
+    "my", "me", "mia", "mimi", "meemee",
+    "my tian", "tian", "mi tian",
+    "jimmy", "timmy", "mini",
+    "nini", "nina",
 ]
 
 
