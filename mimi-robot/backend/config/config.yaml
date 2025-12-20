@@ -1,7 +1,7 @@
 # Mimi Robot Backend Configuration
 
 server:
-  host: "192.168.1.210"  # Chỉ lắng nghe trên WiFi adapter
+  host: "0.0.0.0"  # Lắng nghe trên tất cả network interfaces
   port: 8080
   debug: true
 
