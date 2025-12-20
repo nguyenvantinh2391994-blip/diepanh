@@ -54,7 +54,7 @@
 
 // Voice Activity Detection
 // Giảm threshold để nhận giọng trẻ em nhỏ (trước là 50)
-#define VAD_THRESHOLD       20
+#define VAD_THRESHOLD       50
 #define VAD_SILENCE_MS      2000  // Tăng thời gian chờ để trẻ nói chậm
 
 // ===========================================
