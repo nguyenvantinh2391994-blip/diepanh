@@ -17,6 +17,8 @@ import aiosqlite
 import yaml
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 
 # ============================================================
@@ -258,6 +260,10 @@ async def shutdown():
 
 @app.get("/")
 async def root():
+    """Serve web interface"""
+    web_path = Path(__file__).parent.parent / "web" / "index.html"
+    if web_path.exists():
+        return FileResponse(web_path)
     return {"status": "ok", "service": "Mimi Robot", "version": "1.0.0"}
 
 @app.get("/health")

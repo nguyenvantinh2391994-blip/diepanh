@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mimi - Bạn thân của Diệp Anh</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { color: #e17055; margin-bottom: 10px; }
+        .subtitle { color: #636e72; margin-bottom: 30px; }
+
+        .chat-box {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            width: 100%;
+            max-width: 500px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 85%;
+        }
+        .user {
+            background: #74b9ff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .mimi {
+            background: #fdcb6e;
+            color: #2d3436;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+        }
+        input {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        .send-btn { background: #e17055; color: white; }
+        .mic-btn { background: #00b894; color: white; font-size: 20px; }
+        .mic-btn.recording { background: #d63031; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .status {
+            margin-top: 20px;
+            color: #636e72;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧸 Mimi</h1>
+    <p class="subtitle">Bạn thân của Diệp Anh</p>
+
+    <div class="chat-box" id="chatBox">
+        <div class="message mimi">Xin chào Diệp Anh! Mimi đây nè! 🧸</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="textInput" placeholder="Nhập tin nhắn..." onkeypress="if(event.key==='Enter')sendText()">
+        <button class="send-btn" onclick="sendText()">Gửi</button>
+        <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+    </div>
+
+    <p class="status" id="status">Sẵn sàng</p>
+
+    <script>
+        const SERVER = 'http://' + window.location.hostname + ':8080';
+        const chatBox = document.getElementById('chatBox');
+        const textInput = document.getElementById('textInput');
+        const micBtn = document.getElementById('micBtn');
+        const status = document.getElementById('status');
+
+        let isRecording = false;
+        let recognition = null;
+
+        // Speech Recognition
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'vi-VN';
+            recognition.continuous = false;
+
+            recognition.onresult = (event) => {
+                const text = event.results[0][0].transcript;
+                textInput.value = text;
+                sendText();
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                micBtn.classList.remove('recording');
+                status.textContent = 'Sẵn sàng';
+            };
+        }
+
+        function toggleMic() {
+            if (!recognition) {
+                alert('Trình duyệt không hỗ trợ ghi âm!');
+                return;
+            }
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+                status.textContent = '🎤 Đang nghe...';
+            }
+        }
+
+        function addMessage(text, isUser) {
+            const div = document.createElement('div');
+            div.className = 'message ' + (isUser ? 'user' : 'mimi');
+            div.textContent = text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendText() {
+            const text = textInput.value.trim();
+            if (!text) return;
+
+            addMessage(text, true);
+            textInput.value = '';
+            status.textContent = '🤔 Mimi đang nghĩ...';
+
+            try {
+                const response = await fetch(SERVER + '/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, device_id: 'web' })
+                });
+
+                const data = await response.json();
+                const mimiText = data.response || 'Mimi không hiểu!';
+
+                addMessage(mimiText, false);
+                status.textContent = 'Sẵn sàng';
+
+                // Text-to-Speech
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(mimiText);
+                    utterance.lang = 'vi-VN';
+                    utterance.rate = 0.9;
+                    speechSynthesis.speak(utterance);
+                }
+            } catch (error) {
+                status.textContent = '❌ Lỗi kết nối server!';
+                addMessage('Mimi không kết nối được...', false);
+            }
+        }
+    </script>
+</body>
+</html>
