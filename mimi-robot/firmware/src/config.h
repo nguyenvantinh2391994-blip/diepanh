@@ -10,7 +10,7 @@
 // Thay YOUR_COMPUTER_IP bằng IP máy tính của bạn
 // Chạy "ipconfig" trên Windows để xem IP
 // ===========================================
-#define SERVER_HOST "192.168.1.210"  // IP WiFi adapter của PC
+#define SERVER_HOST "192.168.88.254"  // IP WiFi adapter của PC
 #define SERVER_PORT 8080
 #define SERVER_PATH "/ws"
 
