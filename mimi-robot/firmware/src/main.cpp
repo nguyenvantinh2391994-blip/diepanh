@@ -27,7 +27,7 @@
 // ===========================================
 // Configuration - ĐỔI IP SERVER TẠI ĐÂY
 // ===========================================
-#define SERVER_HOST       "192.168.1.100"  // IP của máy chạy backend
+#define SERVER_HOST       "192.168.1.210"  // IP của máy chạy backend
 #define SERVER_PORT       8080
 #define SERVER_PATH       "/ws"
 
